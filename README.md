@@ -27,7 +27,7 @@ The `dev` script launches both the Express API (port 5000) and the Vite dev serv
 
 ### Environment Variables
 
-Duplicate `.env.example` and rename it to `.env` in the project root to provide environment values (the server will also read it when started from the `server/` directory):
+Duplicate `.env.example` and rename it to `.env` to provide environment values:
 
 ```
 ADMIN_PASSWORD=changeme
