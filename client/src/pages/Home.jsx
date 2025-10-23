@@ -4,19 +4,25 @@ import Hero from '../components/Hero.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import SectionTitle from '../components/SectionTitle.jsx';
 import { useProducts } from '../context/ProductContext.jsx';
+import { useSiteContent } from '../context/SiteContentContext.jsx';
 
 export default function Home() {
   const { products, loading, error } = useProducts();
+  const {
+    content: siteContent,
+    loading: contentLoading,
+    error: contentError
+  } = useSiteContent();
   const featuredProducts = useMemo(() => products.slice(0, 4), [products]);
 
   return (
     <div className="space-y-16">
-      <Hero />
+      <Hero content={siteContent} />
       <section className="space-y-8">
         <SectionTitle
-          eyebrow="Featured"
-          title="Product highlights"
-          description="Demonstrate merchandising strategy with a curated product grid. Update featured collections instantly from the admin panel."
+          eyebrow={siteContent.featuredEyebrow}
+          title={siteContent.featuredTitle}
+          description={siteContent.featuredDescription}
           actions={
             <Link
               to="/shop"
@@ -37,24 +43,27 @@ export default function Home() {
             ))}
           </div>
         )}
+        {contentError ? (
+          <p className="text-rose-500">Unable to load home page content. Using last known values.</p>
+        ) : null}
       </section>
       <section className="rounded-3xl bg-slate-900 px-10 py-12 text-white shadow-lg">
         <div className="flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
           <div className="max-w-xl space-y-4">
-            <p className="text-sm uppercase tracking-[0.3em] text-white/60">No-code admin tool</p>
-            <h3 className="text-3xl font-semibold">Empower clients to launch updates without engineering tickets.</h3>
-            <p className="text-white/80">
-              Editable tables, instant image previews, and confirmation modals make management effortless. Preview the admin
-              workspace to see how your clients can own product storytelling.
-            </p>
+            <p className="text-sm uppercase tracking-[0.3em] text-white/60">{siteContent.spotlightEyebrow}</p>
+            <h3 className="text-3xl font-semibold">{siteContent.spotlightTitle}</h3>
+            <p className="text-white/80">{siteContent.spotlightDescription}</p>
           </div>
           <Link
-            to="/admin"
+            to={siteContent.spotlightCtaUrl || '/admin'}
             className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-brand hover:text-white"
           >
-            Open admin panel
+            {siteContent.spotlightCtaLabel}
           </Link>
         </div>
+        {contentLoading ? (
+          <p className="mt-6 text-sm text-white/70">Loading latest site content...</p>
+        ) : null}
       </section>
     </div>
   );

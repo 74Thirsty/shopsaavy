@@ -1,11 +1,19 @@
 import { useMemo } from 'react';
 import AdminDashboard from '../components/admin/AdminDashboard.jsx';
 import AdminLogin from '../components/admin/AdminLogin.jsx';
+import SiteContentEditor from '../components/admin/SiteContentEditor.jsx';
 import { useProducts } from '../context/ProductContext.jsx';
+import { useSiteContent } from '../context/SiteContentContext.jsx';
 import { useAdminAuth } from '../hooks/useAdminAuth.js';
 
 export default function Admin() {
   const { products, createProduct, updateProduct, deleteProduct } = useProducts();
+  const {
+    content: siteContent,
+    loading: siteContentLoading,
+    error: siteContentError,
+    updateContent: updateSiteContent
+  } = useSiteContent();
   const { password, isAuthenticated, checking, error, verifyPassword, logout } = useAdminAuth();
 
   const sortedProducts = useMemo(() => [...products].sort((a, b) => a.name.localeCompare(b.name)), [products]);
@@ -33,6 +41,13 @@ export default function Admin() {
         onDelete={deleteProduct}
         password={password}
         onLogout={logout}
+      />
+      <SiteContentEditor
+        content={siteContent}
+        loading={siteContentLoading}
+        error={siteContentError}
+        onSubmit={updateSiteContent}
+        password={password}
       />
     </div>
   );
