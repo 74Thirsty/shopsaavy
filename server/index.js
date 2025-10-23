@@ -8,7 +8,9 @@ const {
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getSiteContent,
+  updateSiteContent
 } = require('./lib/db');
 const { resolveFromRoot } = require('./lib/paths');
 
@@ -38,6 +40,39 @@ function sanitizeProductInput(body) {
     image: body.image || '',
     featured: body.featured ? 1 : 0
   };
+}
+
+function sanitizeSiteContentInput(body) {
+  const requiredFields = [
+    'heroBadge',
+    'heroTitle',
+    'heroDescription',
+    'heroPrimaryLabel',
+    'heroPrimaryUrl',
+    'heroSecondaryLabel',
+    'heroSecondaryUrl',
+    'heroImage',
+    'heroSpotlightEyebrow',
+    'heroSpotlightTitle',
+    'featuredEyebrow',
+    'featuredTitle',
+    'featuredDescription',
+    'spotlightEyebrow',
+    'spotlightTitle',
+    'spotlightDescription',
+    'spotlightCtaLabel',
+    'spotlightCtaUrl'
+  ];
+
+  const sanitized = {};
+  for (const field of requiredFields) {
+    const value = body[field];
+    if (value === undefined || value === null) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+    sanitized[field] = String(value).trim();
+  }
+  return sanitized;
 }
 
 function requireAdmin(req, res, next) {
@@ -71,6 +106,16 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+app.get('/api/site-content', async (_req, res) => {
+  try {
+    const content = await getSiteContent();
+    res.json(content);
+  } catch (error) {
+    console.error('Failed to load site content', error);
+    res.status(500).json({ message: 'Failed to load site content' });
+  }
+});
+
 app.get('/api/products/:id', async (req, res) => {
   try {
     const product = await getProductById(req.params.id);
@@ -100,6 +145,17 @@ app.post('/api/products', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/verify', requireAdmin, (req, res) => {
   res.json({ ok: true });
+});
+
+app.put('/api/site-content', requireAdmin, async (req, res) => {
+  try {
+    const siteContent = sanitizeSiteContentInput(req.body);
+    const updated = await updateSiteContent(siteContent);
+    res.json(updated);
+  } catch (error) {
+    console.error('Failed to update site content', error);
+    res.status(400).json({ message: error.message || 'Failed to update site content' });
+  }
 });
 
 app.put('/api/products/:id', requireAdmin, async (req, res) => {

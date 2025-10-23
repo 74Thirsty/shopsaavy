@@ -83,6 +83,30 @@ const defaultProducts = [
   }
 ];
 
+const defaultSiteContent = {
+  heroBadge: 'SaavyShop Demo',
+  heroTitle: 'Showcase products beautifully and update inventory without code.',
+  heroDescription:
+    'This retail demo website pairs a premium storefront with an intuitive admin panel. Update product details, swap imagery, and launch campaigns in minutes.',
+  heroPrimaryLabel: 'Explore Products',
+  heroPrimaryUrl: '/shop',
+  heroSecondaryLabel: 'Manage Catalog',
+  heroSecondaryUrl: '/admin',
+  heroImage: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1600&q=80',
+  heroSpotlightEyebrow: 'Featured Collection',
+  heroSpotlightTitle: 'Curate a stunning brand showcase',
+  featuredEyebrow: 'Featured',
+  featuredTitle: 'Product highlights',
+  featuredDescription:
+    'Demonstrate merchandising strategy with a curated product grid. Update featured collections instantly from the admin panel.',
+  spotlightEyebrow: 'No-code admin tool',
+  spotlightTitle: 'Empower clients to launch updates without engineering tickets.',
+  spotlightDescription:
+    'Editable tables, instant image previews, and confirmation modals make management effortless. Preview the admin workspace to see how your clients can own product storytelling.',
+  spotlightCtaLabel: 'Open admin panel',
+  spotlightCtaUrl: '/admin'
+};
+
 async function initializeDb() {
   await run(
     `CREATE TABLE IF NOT EXISTS products (
@@ -108,6 +132,78 @@ async function initializeDb() {
         [product.name, product.price, product.category, product.description, product.image, 0]
       );
     }
+  }
+
+  await run(
+    `CREATE TABLE IF NOT EXISTS site_content (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      hero_badge TEXT NOT NULL,
+      hero_title TEXT NOT NULL,
+      hero_description TEXT NOT NULL,
+      hero_primary_label TEXT NOT NULL,
+      hero_primary_url TEXT NOT NULL,
+      hero_secondary_label TEXT NOT NULL,
+      hero_secondary_url TEXT NOT NULL,
+      hero_image TEXT NOT NULL,
+      hero_spotlight_eyebrow TEXT NOT NULL,
+      hero_spotlight_title TEXT NOT NULL,
+      featured_eyebrow TEXT NOT NULL,
+      featured_title TEXT NOT NULL,
+      featured_description TEXT NOT NULL,
+      spotlight_eyebrow TEXT NOT NULL,
+      spotlight_title TEXT NOT NULL,
+      spotlight_description TEXT NOT NULL,
+      spotlight_cta_label TEXT NOT NULL,
+      spotlight_cta_url TEXT NOT NULL
+    )`
+  );
+
+  const existingSiteContent = await get('SELECT * FROM site_content WHERE id = 1');
+  if (!existingSiteContent) {
+    await run(
+      `INSERT INTO site_content (
+        id,
+        hero_badge,
+        hero_title,
+        hero_description,
+        hero_primary_label,
+        hero_primary_url,
+        hero_secondary_label,
+        hero_secondary_url,
+        hero_image,
+        hero_spotlight_eyebrow,
+        hero_spotlight_title,
+        featured_eyebrow,
+        featured_title,
+        featured_description,
+        spotlight_eyebrow,
+        spotlight_title,
+        spotlight_description,
+        spotlight_cta_label,
+        spotlight_cta_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        1,
+        defaultSiteContent.heroBadge,
+        defaultSiteContent.heroTitle,
+        defaultSiteContent.heroDescription,
+        defaultSiteContent.heroPrimaryLabel,
+        defaultSiteContent.heroPrimaryUrl,
+        defaultSiteContent.heroSecondaryLabel,
+        defaultSiteContent.heroSecondaryUrl,
+        defaultSiteContent.heroImage,
+        defaultSiteContent.heroSpotlightEyebrow,
+        defaultSiteContent.heroSpotlightTitle,
+        defaultSiteContent.featuredEyebrow,
+        defaultSiteContent.featuredTitle,
+        defaultSiteContent.featuredDescription,
+        defaultSiteContent.spotlightEyebrow,
+        defaultSiteContent.spotlightTitle,
+        defaultSiteContent.spotlightDescription,
+        defaultSiteContent.spotlightCtaLabel,
+        defaultSiteContent.spotlightCtaUrl
+      ]
+    );
   }
 }
 
@@ -188,11 +284,94 @@ async function deleteProduct(id) {
   return true;
 }
 
+function mapSiteContent(row) {
+  if (!row) {
+    return null;
+  }
+  return {
+    heroBadge: row.hero_badge,
+    heroTitle: row.hero_title,
+    heroDescription: row.hero_description,
+    heroPrimaryLabel: row.hero_primary_label,
+    heroPrimaryUrl: row.hero_primary_url,
+    heroSecondaryLabel: row.hero_secondary_label,
+    heroSecondaryUrl: row.hero_secondary_url,
+    heroImage: row.hero_image,
+    heroSpotlightEyebrow: row.hero_spotlight_eyebrow,
+    heroSpotlightTitle: row.hero_spotlight_title,
+    featuredEyebrow: row.featured_eyebrow,
+    featuredTitle: row.featured_title,
+    featuredDescription: row.featured_description,
+    spotlightEyebrow: row.spotlight_eyebrow,
+    spotlightTitle: row.spotlight_title,
+    spotlightDescription: row.spotlight_description,
+    spotlightCtaLabel: row.spotlight_cta_label,
+    spotlightCtaUrl: row.spotlight_cta_url
+  };
+}
+
+async function getSiteContent() {
+  const row = await get('SELECT * FROM site_content WHERE id = 1');
+  if (!row) {
+    return defaultSiteContent;
+  }
+  return mapSiteContent(row);
+}
+
+async function updateSiteContent(data) {
+  await run(
+    `UPDATE site_content SET
+      hero_badge = ?,
+      hero_title = ?,
+      hero_description = ?,
+      hero_primary_label = ?,
+      hero_primary_url = ?,
+      hero_secondary_label = ?,
+      hero_secondary_url = ?,
+      hero_image = ?,
+      hero_spotlight_eyebrow = ?,
+      hero_spotlight_title = ?,
+      featured_eyebrow = ?,
+      featured_title = ?,
+      featured_description = ?,
+      spotlight_eyebrow = ?,
+      spotlight_title = ?,
+      spotlight_description = ?,
+      spotlight_cta_label = ?,
+      spotlight_cta_url = ?
+     WHERE id = 1`,
+    [
+      data.heroBadge,
+      data.heroTitle,
+      data.heroDescription,
+      data.heroPrimaryLabel,
+      data.heroPrimaryUrl,
+      data.heroSecondaryLabel,
+      data.heroSecondaryUrl,
+      data.heroImage,
+      data.heroSpotlightEyebrow,
+      data.heroSpotlightTitle,
+      data.featuredEyebrow,
+      data.featuredTitle,
+      data.featuredDescription,
+      data.spotlightEyebrow,
+      data.spotlightTitle,
+      data.spotlightDescription,
+      data.spotlightCtaLabel,
+      data.spotlightCtaUrl
+    ]
+  );
+
+  return getSiteContent();
+}
+
 module.exports = {
   initializeDb,
   listProducts,
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getSiteContent,
+  updateSiteContent
 };
