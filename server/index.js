@@ -13,6 +13,7 @@ const {
   updateSiteContent
 } = require('./lib/db');
 const { resolveFromRoot } = require('./lib/paths');
+const { updateEnvVariable } = require('./lib/updateEnv');
 
 dotenv.config({ path: resolveFromRoot('.env') });
 
@@ -90,6 +91,12 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+app.get('/api/config', (_req, res) => {
+  res.json({
+    siteName: process.env.SITE_NAME || 'SaavyShop Demo'
+  });
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const { category, minPrice, maxPrice } = req.query;
@@ -145,6 +152,24 @@ app.post('/api/products', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/verify', requireAdmin, (req, res) => {
   res.json({ ok: true });
+});
+
+app.put('/api/admin/site-config', requireAdmin, (req, res) => {
+  const { siteName } = req.body || {};
+  if (typeof siteName !== 'string' || siteName.trim() === '') {
+    return res.status(400).json({ message: 'Site name is required' });
+  }
+
+  const sanitized = siteName.trim();
+
+  try {
+    updateEnvVariable('SITE_NAME', sanitized);
+    process.env.SITE_NAME = sanitized;
+    return res.json({ siteName: sanitized });
+  } catch (error) {
+    console.error('Failed to update site configuration', error);
+    return res.status(500).json({ message: 'Failed to update site name' });
+  }
 });
 
 app.put('/api/site-content', requireAdmin, async (req, res) => {
