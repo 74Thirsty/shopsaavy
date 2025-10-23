@@ -14,8 +14,11 @@ const {
 } = require('./lib/db');
 const { resolveFromRoot } = require('./lib/paths');
 const { updateEnvVariable } = require('./lib/updateEnv');
+const { ensureLicenseValid } = require('./lib/licenseManager');
 
 dotenv.config({ path: resolveFromRoot('.env') });
+
+ensureLicenseValid();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
