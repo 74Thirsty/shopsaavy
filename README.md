@@ -1,6 +1,6 @@
-# SaavyShop Demo
+# Shop Saavy Demo
 
-SaavyShop is a full-stack retail showcase that pairs a modern React + Tailwind storefront with a password-protected administration workspace. Store operators can manage inventory, edit landing page content, and now control the live site name without touching code or redeploying servers.
+Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind storefront with a password-protected administration workspace. Store operators can manage inventory, edit landing page content, and now control the live site name without touching code or redeploying servers.
 
 ## Key Features
 
@@ -102,4 +102,4 @@ SaavyShop is a full-stack retail showcase that pairs a modern React + Tailwind s
 
 ## License
 
-This project is available under the [MIT License](./LICENSE.md).
+This project is available under the [Private License](./LICENSE.md).
