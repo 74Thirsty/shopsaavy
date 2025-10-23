@@ -1,4 +1,3 @@
-const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -11,8 +10,9 @@ const {
   updateProduct,
   deleteProduct
 } = require('./lib/db');
+const { resolveFromRoot } = require('./lib/paths');
 
-dotenv.config();
+dotenv.config({ path: resolveFromRoot('.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -132,14 +132,14 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
   }
 });
 
-const clientBuildPath = path.join(__dirname, '../client/dist');
+const clientBuildPath = resolveFromRoot('client', 'dist');
 app.use(express.static(clientBuildPath));
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ message: 'Not found' });
   }
-  return res.sendFile(path.join(clientBuildPath, 'index.html'));
+  return res.sendFile(resolveFromRoot('client', 'dist', 'index.html'));
 });
 
 initializeDb()
