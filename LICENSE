@@ -111,11 +111,3 @@ g) Merge the Software into, or bundle with, any open-source licensed code in a w
 ## 22. Signature
 
 By accepting delivery and/or using the Software, Licensee acknowledges having read, understood, and agreed to be bound by this Agreement.
-
----
-
-### Quick implementation notes (optional)
-
-* Insert concrete License Fee amounts and the exact governing jurisdiction/venue where indicated.
-* Decide whether you want to require license activation (server-side verification) — if yes, include machine activation and tamper penalties explicitly in Section 4 and Section 12.
-* Consider specifying precise instance/domain limits in the Business License clause (e.g., “up to X domain names/instances”) and adding per-instance overage fees.
