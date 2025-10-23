@@ -102,4 +102,4 @@ SaavyShop is a full-stack retail showcase that pairs a modern React + Tailwind s
 
 ## License
 
-This project is available under the [MIT License](./LICENSE).
+This project is available under the [MIT License](./LICENSE.md).
