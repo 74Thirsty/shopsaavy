@@ -12,13 +12,7 @@ const {
   deleteProduct
 } = require('./lib/db');
 
-// Load environment variables from the project root first so that a root-level
-// .env works even when the server is started from the server/ directory (the
-// default when running "npm run dev"). If the root file does not exist we fall
-// back to the local server/.env file and finally to process defaults.
-const rootEnvPath = path.resolve(__dirname, '../.env');
-dotenv.config({ path: rootEnvPath });
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
