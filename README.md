@@ -116,3 +116,6 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 ## License
 
 This project is available under the [Private License](./LICENSE.md).
+
+![Sheen Banner](https://raw.githubusercontent.com/74Thirsty/74Thirsty/main/assets/shopsaavy.svg)
+
