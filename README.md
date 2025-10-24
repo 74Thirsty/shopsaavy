@@ -119,6 +119,3 @@ This project is available under the [Private License](./LICENSE.md).
 
 ---
 
-![Repo Views](https://komarev.com/ghpvc/?username=74Thirsty&repo=shopsaavy&color=blue)
-
-
