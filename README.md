@@ -117,3 +117,8 @@ This project is available under the [Private License](./LICENSE.md).
 
 [![Video Title](https://img.youtube.com/vi/8F2M70TRTv0/maxresdefault.jpg)](https://www.youtube.com/watch?v=8F2M70TRTv0)
 
+---
+
+![Visitor Count](https://komarev.com/ghpvc/?username=74Thirsty&color=blue)
+
+
