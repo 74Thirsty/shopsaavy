@@ -5,17 +5,20 @@ import App from './App.jsx';
 import { ProductProvider } from './context/ProductContext.jsx';
 import { SiteContentProvider } from './context/SiteContentContext.jsx';
 import { SiteSettingsProvider } from './context/SiteSettingsContext.jsx';
+import { CheckoutConfigProvider } from './context/CheckoutConfigContext.jsx';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <SiteSettingsProvider>
-        <SiteContentProvider>
-          <ProductProvider>
-            <App />
-          </ProductProvider>
-        </SiteContentProvider>
+        <CheckoutConfigProvider>
+          <SiteContentProvider>
+            <ProductProvider>
+              <App />
+            </ProductProvider>
+          </SiteContentProvider>
+        </CheckoutConfigProvider>
       </SiteSettingsProvider>
     </BrowserRouter>
   </React.StrictMode>
