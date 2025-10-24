@@ -5,6 +5,7 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 ## Key Features
 
 - **Live site identity controls** – Update the site name from the admin panel and have it persist to `.env`, refresh `process.env`, and render across the app instantly.
+- **Layout and theme personalization** – Choose between storefront layouts and cycle through light, dark, and auto themes directly from the Site Settings panel with instant preview and local persistence.
 - **Product management dashboard** – Browse, create, update, and delete products with inline editing and modal workflows backed by SQLite.
 - **Content editing experience** – Tune hero copy, spotlight sections, and call-to-action links with field validation and preview-friendly tooling.
 - **API-first backend** – Express routes expose REST endpoints for storefront queries and authenticated admin actions.
@@ -48,10 +49,13 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 
 - Navigate to `/admin` and authenticate using the `ADMIN_PASSWORD`. Credentials are exchanged via the `x-admin-password` header for protected endpoints.
 - Manage catalog entries in the dashboard with inline edits or modal dialogs. All changes persist to the SQLite database.
-- Update the storefront branding in the **Site Settings** panel. Saving a new name:
+- Update the storefront branding and appearance in the **Site Settings** panel. Managing the site name:
   - Validates the input.
   - Calls `PUT /api/admin/site-config` with the admin password.
   - Writes the updated value to `.env`, refreshes `process.env.SITE_NAME`, and broadcasts the new name to the UI via context.
+- Adjust the storefront layout and theme:
+  - Selections are stored in localStorage for persistence across sessions.
+  - The layout selector and theme toggle provide immediate visual feedback by updating body attributes and status messaging.
 - Edit homepage messaging in the **Site Content** editor. Changes are stored server-side for immediate storefront updates.
 
 ## API Reference
