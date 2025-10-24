@@ -205,6 +205,39 @@ async function initializeDb() {
       ]
     );
   }
+
+  await run(
+    `CREATE TABLE IF NOT EXISTS checkout_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      google_form_url TEXT,
+      microsoft_form_url TEXT,
+      secure_checkout_label TEXT NOT NULL DEFAULT 'Secure checkout',
+      secure_checkout_url TEXT,
+      instructions TEXT
+    )`
+  );
+
+  const existingCheckoutConfig = await get('SELECT * FROM checkout_config WHERE id = 1');
+  if (!existingCheckoutConfig) {
+    await run(
+      `INSERT INTO checkout_config (
+        id,
+        google_form_url,
+        microsoft_form_url,
+        secure_checkout_label,
+        secure_checkout_url,
+        instructions
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        1,
+        '',
+        '',
+        'Secure checkout',
+        '',
+        'Choose a secure payment option or use one of the order form templates to collect requests from budget-conscious customers.'
+      ]
+    );
+  }
 }
 
 async function listProducts(filters = {}) {
@@ -365,6 +398,55 @@ async function updateSiteContent(data) {
   return getSiteContent();
 }
 
+function mapCheckoutConfig(row) {
+  if (!row) {
+    return {
+      googleFormUrl: '',
+      microsoftFormUrl: '',
+      secureCheckoutLabel: 'Secure checkout',
+      secureCheckoutUrl: '',
+      instructions:
+        'Choose a secure payment option or use one of the order form templates to collect requests from budget-conscious customers.'
+    };
+  }
+
+  return {
+    googleFormUrl: row.google_form_url || '',
+    microsoftFormUrl: row.microsoft_form_url || '',
+    secureCheckoutLabel: row.secure_checkout_label || 'Secure checkout',
+    secureCheckoutUrl: row.secure_checkout_url || '',
+    instructions:
+      row.instructions ||
+      'Choose a secure payment option or use one of the order form templates to collect requests from budget-conscious customers.'
+  };
+}
+
+async function getCheckoutConfig() {
+  const row = await get('SELECT * FROM checkout_config WHERE id = 1');
+  return mapCheckoutConfig(row);
+}
+
+async function updateCheckoutConfig(data) {
+  await run(
+    `UPDATE checkout_config SET
+      google_form_url = ?,
+      microsoft_form_url = ?,
+      secure_checkout_label = ?,
+      secure_checkout_url = ?,
+      instructions = ?
+     WHERE id = 1`,
+    [
+      data.googleFormUrl || '',
+      data.microsoftFormUrl || '',
+      data.secureCheckoutLabel || 'Secure checkout',
+      data.secureCheckoutUrl || '',
+      data.instructions || ''
+    ]
+  );
+
+  return getCheckoutConfig();
+}
+
 module.exports = {
   initializeDb,
   listProducts,
@@ -373,5 +455,7 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getSiteContent,
-  updateSiteContent
+  updateSiteContent,
+  getCheckoutConfig,
+  updateCheckoutConfig
 };

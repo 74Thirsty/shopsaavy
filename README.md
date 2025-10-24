@@ -99,6 +99,10 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 └── README.md
 ```
 
+## Documentation
+
+- [User Guide](./docs/USER_GUIDE.md) – Step-by-step walkthrough for operators, administrators, and customers covering storefront browsing, order processing, and checkout integrations.
+
 ## Deployment Notes
 
 1. Run `npm run build` to generate production-ready frontend assets.

@@ -11,7 +11,9 @@ const {
   updateProduct,
   deleteProduct,
   getSiteContent,
-  updateSiteContent
+  updateSiteContent,
+  getCheckoutConfig,
+  updateCheckoutConfig
 } = require('./lib/db');
 const { resolveFromRoot } = require('./lib/paths');
 const { updateEnvVariable } = require('./lib/updateEnv');
@@ -77,6 +79,38 @@ function sanitizeSiteContentInput(body) {
   return sanitized;
 }
 
+function sanitizeCheckoutConfigInput(body) {
+  const sanitized = {
+    googleFormUrl: '',
+    microsoftFormUrl: '',
+    secureCheckoutLabel: 'Secure checkout',
+    secureCheckoutUrl: '',
+    instructions: ''
+  };
+
+  if (body.googleFormUrl) {
+    sanitized.googleFormUrl = String(body.googleFormUrl).trim();
+  }
+
+  if (body.microsoftFormUrl) {
+    sanitized.microsoftFormUrl = String(body.microsoftFormUrl).trim();
+  }
+
+  if (body.secureCheckoutLabel) {
+    sanitized.secureCheckoutLabel = String(body.secureCheckoutLabel).trim() || 'Secure checkout';
+  }
+
+  if (body.secureCheckoutUrl) {
+    sanitized.secureCheckoutUrl = String(body.secureCheckoutUrl).trim();
+  }
+
+  if (body.instructions) {
+    sanitized.instructions = String(body.instructions).trim();
+  }
+
+  return sanitized;
+}
+
 function requireAdmin(req, res, next) {
   const headerPassword = req.headers['x-admin-password'];
   if (!headerPassword || headerPassword !== ADMIN_PASSWORD) {
@@ -121,6 +155,16 @@ app.get('/api/site-content', async (_req, res) => {
   } catch (error) {
     console.error('Failed to load site content', error);
     res.status(500).json({ message: 'Failed to load site content' });
+  }
+});
+
+app.get('/api/checkout-config', async (_req, res) => {
+  try {
+    const config = await getCheckoutConfig();
+    res.json(config);
+  } catch (error) {
+    console.error('Failed to load checkout configuration', error);
+    res.status(500).json({ message: 'Failed to load checkout configuration' });
   }
 });
 
@@ -181,6 +225,17 @@ app.put('/api/site-content', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Failed to update site content', error);
     res.status(400).json({ message: error.message || 'Failed to update site content' });
+  }
+});
+
+app.put('/api/checkout-config', requireAdmin, async (req, res) => {
+  try {
+    const checkoutConfig = sanitizeCheckoutConfigInput(req.body || {});
+    const updated = await updateCheckoutConfig(checkoutConfig);
+    res.json(updated);
+  } catch (error) {
+    console.error('Failed to update checkout configuration', error);
+    res.status(400).json({ message: error.message || 'Failed to update checkout configuration' });
   }
 });
 

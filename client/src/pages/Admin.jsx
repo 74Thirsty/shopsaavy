@@ -3,9 +3,11 @@ import AdminDashboard from '../components/admin/AdminDashboard.jsx';
 import AdminLogin from '../components/admin/AdminLogin.jsx';
 import SiteContentEditor from '../components/admin/SiteContentEditor.jsx';
 import SiteSettingsPanel from '../components/admin/SiteSettingsPanel.jsx';
+import CheckoutIntegrationEditor from '../components/admin/CheckoutIntegrationEditor.jsx';
 import { useProducts } from '../context/ProductContext.jsx';
 import { useSiteContent } from '../context/SiteContentContext.jsx';
 import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
+import { useCheckoutConfig } from '../context/CheckoutConfigContext.jsx';
 import { useAdminAuth } from '../hooks/useAdminAuth.js';
 
 export default function Admin() {
@@ -26,6 +28,12 @@ export default function Admin() {
     layoutOptions,
     themeOptions
   } = useSiteSettings();
+  const {
+    config: checkoutConfig,
+    loading: checkoutConfigLoading,
+    error: checkoutConfigError,
+    updateConfig: updateCheckoutConfig
+  } = useCheckoutConfig();
   const { password, isAuthenticated, checking, error, verifyPassword, logout } = useAdminAuth();
 
   const sortedProducts = useMemo(() => [...products].sort((a, b) => a.name.localeCompare(b.name)), [products]);
@@ -72,6 +80,13 @@ export default function Admin() {
         loading={siteContentLoading}
         error={siteContentError}
         onSubmit={updateSiteContent}
+        password={password}
+      />
+      <CheckoutIntegrationEditor
+        config={checkoutConfig}
+        loading={checkoutConfigLoading}
+        error={checkoutConfigError}
+        onSubmit={updateCheckoutConfig}
         password={password}
       />
     </div>

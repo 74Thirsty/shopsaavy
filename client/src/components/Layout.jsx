@@ -5,6 +5,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext.jsx';
 const navLinks = [
   { path: '/', label: 'Home' },
   { path: '/shop', label: 'Shop' },
+  { path: '/checkout', label: 'Checkout' },
   { path: '/admin', label: 'Admin' }
 ];
 
