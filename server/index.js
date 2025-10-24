@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const net = require('net');
 
 const {
   initializeDb,
@@ -18,7 +19,7 @@ const { updateEnvVariable } = require('./lib/updateEnv');
 dotenv.config({ path: resolveFromRoot('.env') });
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme';
 
 app.use(cors());
@@ -223,22 +224,54 @@ app.get('*', (req, res) => {
   return res.sendFile(resolveFromRoot('client', 'dist', 'index.html'));
 });
 
-initializeDb()
-  .then(() => {
-    const serverInstance = app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+async function findAvailablePort(desiredPort) {
+  const portToTry = Number(desiredPort) || 0;
+
+  return new Promise((resolve, reject) => {
+    const tester = net.createServer();
+
+    tester.once('error', (error) => {
+      tester.close(() => {
+        if (error.code === 'EADDRINUSE') {
+          resolve(findAvailablePort(portToTry + 1));
+        } else {
+          reject(error);
+        }
+      });
     });
 
-    serverInstance.on('error', (error) => {
-      if (error.code === 'EADDRINUSE') {
-        console.error(
-          `Port ${PORT} is already in use. Update the PORT environment variable to target an available port.`
-        );
-      } else {
-        console.error('Failed to start server', error);
-      }
-      process.exit(1);
+    tester.once('listening', () => {
+      const { port } = tester.address();
+      tester.close(() => resolve(port));
     });
+
+    tester.listen(portToTry);
+  });
+}
+
+initializeDb()
+  .then(async () => {
+    try {
+      const availablePort = await findAvailablePort(PORT);
+      if (availablePort !== PORT) {
+        console.warn(
+          `Port ${PORT} is already in use. Falling back to available port ${availablePort}.`
+        );
+      }
+
+      const serverInstance = app.listen(availablePort, () => {
+        process.env.PORT = String(availablePort);
+        console.log(`Server running on port ${availablePort}`);
+      });
+
+      serverInstance.on('error', (error) => {
+        console.error('Failed to start server', error);
+        process.exit(1);
+      });
+    } catch (error) {
+      console.error('Failed to determine an available port', error);
+      process.exit(1);
+    }
   })
   .catch((error) => {
     console.error('Failed to initialize database', error);
