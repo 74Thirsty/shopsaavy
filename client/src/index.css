@@ -4,17 +4,296 @@
 
 :root {
   color-scheme: light;
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f5f9;
+  --color-surface-strong: #0f172a;
+  --color-text: #0f172a;
+  --color-text-strong: #0f172a;
+  --color-muted: #475569;
+  --color-border: #e2e8f0;
+  --color-brand: #3b82f6;
+  --color-brand-dark: #1e3a8a;
+  --color-brand-accent: #9333ea;
+  --color-header: rgba(255, 255, 255, 0.9);
+  --color-footer: rgba(255, 255, 255, 0.9);
+  --color-spotlight-bg: #0f172a;
+  --color-card-shadow: rgba(59, 130, 246, 0.2);
 }
 
 body {
-  @apply bg-slate-50 text-slate-800;
+  background-color: var(--color-background);
+  color: var(--color-text);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+body[data-theme='midnight'] {
+  color-scheme: dark;
+  --color-background: #0f172a;
+  --color-surface: rgba(15, 23, 42, 0.92);
+  --color-surface-muted: rgba(30, 41, 59, 0.75);
+  --color-surface-strong: #020617;
+  --color-text: #e2e8f0;
+  --color-text-strong: #f8fafc;
+  --color-muted: #94a3b8;
+  --color-border: rgba(148, 163, 184, 0.35);
+  --color-brand: #38bdf8;
+  --color-brand-dark: #0ea5e9;
+  --color-brand-accent: #7dd3fc;
+  --color-header: rgba(15, 23, 42, 0.88);
+  --color-footer: rgba(15, 23, 42, 0.9);
+  --color-spotlight-bg: rgba(15, 23, 42, 0.95);
+  --color-card-shadow: rgba(14, 165, 233, 0.3);
+}
+
+body[data-theme='sunset'] {
+  color-scheme: light;
+  --color-background: #fff7ed;
+  --color-surface: rgba(255, 255, 255, 0.95);
+  --color-surface-muted: rgba(255, 237, 213, 0.9);
+  --color-surface-strong: #7c2d12;
+  --color-text: #7c2d12;
+  --color-text-strong: #7c2d12;
+  --color-muted: #b45309;
+  --color-border: rgba(251, 191, 36, 0.45);
+  --color-brand: #f97316;
+  --color-brand-dark: #c2410c;
+  --color-brand-accent: #facc15;
+  --color-header: rgba(255, 248, 237, 0.92);
+  --color-footer: rgba(255, 248, 237, 0.92);
+  --color-spotlight-bg: rgba(124, 45, 18, 0.92);
+  --color-card-shadow: rgba(249, 115, 22, 0.25);
 }
 
 a {
-  @apply text-brand;
+  color: var(--color-brand);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--color-brand-dark);
 }
 
 button {
   font-family: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.site-header,
+.site-footer {
+  background-color: var(--color-header);
+  border-color: var(--color-border);
+  transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.site-footer {
+  background-color: var(--color-footer);
+}
+
+.site-nav .nav-link {
+  color: var(--color-muted);
+}
+
+.site-nav .nav-link:hover {
+  color: var(--color-brand);
+}
+
+.site-nav .nav-link-active {
+  color: var(--color-brand);
+}
+
+.brand-highlight {
+  background: color-mix(in srgb, var(--color-brand) 12%, transparent);
+  color: var(--color-brand-dark);
+}
+
+.hero-section {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-surface) 96%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface-muted) 85%, transparent) 100%
+  );
+}
+
+.hero-media {
+  background-color: var(--color-spotlight-bg);
+}
+
+.hero-media-overlay {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.35) 0%, transparent 70%);
+}
+
+.spotlight-section {
+  background-color: var(--color-spotlight-bg);
+  transition: background-color 0.4s ease;
+}
+
+.product-card {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.product-card:hover {
+  box-shadow: 0 25px 50px -20px var(--color-card-shadow);
+}
+
+.appearance-controls {
+  background-color: color-mix(in srgb, var(--color-surface) 85%, transparent);
+}
+
+body .bg-white {
+  background-color: var(--color-surface) !important;
+}
+
+body .bg-white\/60 {
+  background-color: color-mix(in srgb, var(--color-surface) 60%, transparent) !important;
+}
+
+body .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--color-surface) 80%, transparent) !important;
+}
+
+body .bg-slate-50 {
+  background-color: var(--color-background) !important;
+}
+
+body .bg-slate-100 {
+  background-color: var(--color-surface-muted) !important;
+}
+
+body .bg-slate-900 {
+  background-color: var(--color-spotlight-bg) !important;
+}
+
+body .text-slate-900 {
+  color: var(--color-text-strong) !important;
+}
+
+body .text-slate-800,
+body .text-slate-700 {
+  color: var(--color-text) !important;
+}
+
+body .text-slate-600 {
+  color: var(--color-muted) !important;
+}
+
+body .text-slate-500 {
+  color: color-mix(in srgb, var(--color-muted) 75%, var(--color-text) 25%) !important;
+}
+
+body .text-slate-400 {
+  color: color-mix(in srgb, var(--color-muted) 60%, var(--color-text) 40%) !important;
+}
+
+body .border-slate-200 {
+  border-color: var(--color-border) !important;
+}
+
+body .text-brand,
+body .hover\:text-brand:hover {
+  color: var(--color-brand) !important;
+}
+
+body .text-brand-dark,
+body .hover\:text-brand-dark:hover {
+  color: var(--color-brand-dark) !important;
+}
+
+body .border-brand,
+body .hover\:border-brand:hover {
+  border-color: var(--color-brand) !important;
+}
+
+body .bg-brand {
+  background-color: var(--color-brand) !important;
+}
+
+body .hover\:bg-brand:hover {
+  background-color: color-mix(in srgb, var(--color-brand) 85%, black 15%) !important;
+}
+
+body .hover\:bg-brand-dark:hover {
+  background-color: var(--color-brand-dark) !important;
+}
+
+body .bg-brand\/10 {
+  background-color: color-mix(in srgb, var(--color-brand) 12%, transparent) !important;
+}
+
+body .shadow-brand\/30 {
+  box-shadow: 0 20px 45px -20px color-mix(in srgb, var(--color-brand) 30%, transparent) !important;
+}
+
+body .text-slate-500 a,
+body .text-slate-500 button {
+  color: inherit;
+}
+
+.home-page {
+  transition: gap 0.4s ease;
+}
+
+body[data-layout='spotlight'] .hero-section {
+  padding: 4rem;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-brand) 12%, var(--color-surface) 88%) 0%,
+    color-mix(in srgb, var(--color-surface-muted) 85%, transparent) 100%
+  );
+}
+
+body[data-layout='spotlight'] .hero-media {
+  min-height: 22rem;
+}
+
+body[data-layout='spotlight'] .featured-products {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+body[data-layout='spotlight'] .spotlight-section {
+  background: linear-gradient(135deg, var(--color-spotlight-bg) 0%, color-mix(in srgb, var(--color-brand) 35%, transparent) 100%);
+}
+
+body[data-layout='magazine'] .hero-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  text-align: center;
+  padding: 3.5rem;
+}
+
+body[data-layout='magazine'] .hero-media {
+  order: -1;
+  height: 20rem;
+}
+
+body[data-layout='magazine'] .hero-actions {
+  justify-content: center;
+}
+
+body[data-layout='magazine'] .hero-copy {
+  align-items: center;
+}
+
+body[data-layout='magazine'] .featured-products {
+  gap: 3rem;
+}
+
+body[data-layout='magazine'] .spotlight-section__layout {
+  flex-direction: column;
+  text-align: center;
+}
+
+body[data-layout='magazine'] .spotlight-section__cta {
+  align-self: center;
 }

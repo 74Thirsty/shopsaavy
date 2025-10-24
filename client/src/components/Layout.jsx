@@ -11,30 +11,29 @@ const navLinks = [
 export default function Layout({ children }) {
   const { settings } = useSiteSettings();
   const siteName = settings.siteName || 'SaavyShop Demo';
+  const layoutKey = settings.layout || 'classic';
   const [highlight, ...rest] = siteName.split(' ');
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/" className="text-xl font-semibold text-slate-900">
+    <div className={`app-shell layout-${layoutKey}`}>
+      <header className="site-header sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
+        <div className="site-header__content mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <Link to="/" className="site-brand text-xl font-semibold text-slate-900">
             {highlight ? (
               <>
-                <span className="rounded bg-brand/10 px-2 py-1 text-brand-dark">{highlight}</span>
+                <span className="brand-highlight rounded px-2 py-1 text-brand-dark">{highlight}</span>
                 {rest.length ? ` ${rest.join(' ')}` : ''}
               </>
             ) : (
-              <span className="rounded bg-brand/10 px-2 py-1 text-brand-dark">SaavyShop Demo</span>
+              <span className="brand-highlight rounded px-2 py-1 text-brand-dark">SaavyShop Demo</span>
             )}
           </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium">
+          <nav className="site-nav flex items-center gap-6 text-sm font-medium">
             {navLinks.map((link) => (
               <NavLink
                 key={link.path}
                 to={link.path}
-                className={({ isActive }) =>
-                  `transition-colors hover:text-brand ${isActive ? 'text-brand-dark' : 'text-slate-500'}`
-                }
+                className={({ isActive }) => `nav-link transition-colors ${isActive ? 'nav-link-active' : ''}`}
               >
                 {link.label}
               </NavLink>
@@ -42,7 +41,7 @@ export default function Layout({ children }) {
           </nav>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
+      <main className="site-main mx-auto w-full max-w-6xl flex-1 px-6 py-10">{children}</main>
       <Footer />
     </div>
   );

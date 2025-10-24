@@ -20,7 +20,11 @@ export default function Admin() {
     settings: siteSettings,
     loading: siteSettingsLoading,
     error: siteSettingsError,
-    updateSiteName
+    updateSiteName,
+    updateLayout,
+    cycleTheme,
+    layoutOptions,
+    themeOptions
   } = useSiteSettings();
   const { password, isAuthenticated, checking, error, verifyPassword, logout } = useAdminAuth();
 
@@ -56,6 +60,12 @@ export default function Admin() {
         password={password}
         loading={siteSettingsLoading}
         error={siteSettingsError}
+        layout={siteSettings.layout}
+        layoutOptions={layoutOptions}
+        onLayoutChange={updateLayout}
+        theme={siteSettings.theme}
+        themeOptions={themeOptions}
+        onThemeToggle={cycleTheme}
       />
       <SiteContentEditor
         content={siteContent}
