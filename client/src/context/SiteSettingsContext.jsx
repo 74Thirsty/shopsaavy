@@ -3,12 +3,51 @@ import axios from 'axios';
 
 const SiteSettingsContext = createContext();
 
+const appearanceStorageKey = 'shopsaavy:appearance';
+
+export const layoutOptions = [
+  { value: 'classic', label: 'Classic split' },
+  { value: 'spotlight', label: 'Spotlight showcase' },
+  { value: 'magazine', label: 'Magazine grid' }
+];
+
+export const themeOptions = [
+  { value: 'light', label: 'Daylight' },
+  { value: 'midnight', label: 'Midnight' },
+  { value: 'sunset', label: 'Golden hour' }
+];
+
 const defaultSettings = {
-  siteName: 'SaavyShop Demo'
+  siteName: 'SaavyShop Demo',
+  layout: layoutOptions[0].value,
+  theme: themeOptions[0].value
 };
 
+function readStoredAppearance() {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const raw = window.localStorage.getItem(appearanceStorageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    const validLayout = layoutOptions.some((option) => option.value === parsed?.layout)
+      ? parsed.layout
+      : undefined;
+    const validTheme = themeOptions.some((option) => option.value === parsed?.theme) ? parsed.theme : undefined;
+    return {
+      ...(validLayout ? { layout: validLayout } : null),
+      ...(validTheme ? { theme: validTheme } : null)
+    };
+  } catch (error) {
+    console.warn('Unable to read saved appearance preferences', error);
+    return {};
+  }
+}
+
 export function SiteSettingsProvider({ children }) {
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState(() => ({ ...defaultSettings, ...readStoredAppearance() }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -29,6 +68,24 @@ export function SiteSettingsProvider({ children }) {
     fetchSettings();
   }, [fetchSettings]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const { layout, theme } = settings;
+    window.localStorage.setItem(appearanceStorageKey, JSON.stringify({ layout, theme }));
+  }, [settings.layout, settings.theme]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.body.dataset.layout = settings.layout;
+    document.body.dataset.theme = settings.theme;
+  }, [settings.layout, settings.theme]);
+
   const mutateWithPassword = useCallback(async (fn, password) => {
     if (!password) {
       throw new Error('Admin password is required');
@@ -40,11 +97,42 @@ export function SiteSettingsProvider({ children }) {
     });
   }, []);
 
+  const updateLayoutPreference = useCallback((nextLayout) => {
+    setSettings((current) => {
+      const layout = layoutOptions.some((option) => option.value === nextLayout) ? nextLayout : current.layout;
+      if (layout !== current.layout) {
+        console.log('Layout switched to:', layout);
+      }
+      return { ...current, layout };
+    });
+  }, []);
+
+  const setThemePreference = useCallback((nextTheme) => {
+    setSettings((current) => {
+      const theme = themeOptions.some((option) => option.value === nextTheme) ? nextTheme : current.theme;
+      if (theme !== current.theme) {
+        console.log('Theme changed to:', theme);
+      }
+      return { ...current, theme };
+    });
+  }, []);
+
+  const cycleThemePreference = useCallback(() => {
+    setSettings((current) => {
+      const index = themeOptions.findIndex((option) => option.value === current.theme);
+      const next = themeOptions[(index + 1) % themeOptions.length] ?? themeOptions[0];
+      console.log('Theme changed to:', next.value);
+      return { ...current, theme: next.value };
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       settings,
       loading,
       error,
+      layoutOptions,
+      themeOptions,
       refresh: fetchSettings,
       async updateSiteName(siteName, password) {
         const response = await mutateWithPassword(
@@ -53,9 +141,21 @@ export function SiteSettingsProvider({ children }) {
         );
         setSettings((current) => ({ ...current, ...response.data }));
         return response.data;
-      }
+      },
+      updateLayout: updateLayoutPreference,
+      setTheme: setThemePreference,
+      cycleTheme: cycleThemePreference
     }),
-    [settings, loading, error, fetchSettings, mutateWithPassword]
+    [
+      settings,
+      loading,
+      error,
+      fetchSettings,
+      mutateWithPassword,
+      updateLayoutPreference,
+      setThemePreference,
+      cycleThemePreference
+    ]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;
