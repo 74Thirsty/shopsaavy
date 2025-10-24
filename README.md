@@ -39,6 +39,8 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
    npm run dev
    ```
    The script starts the Express API on port 5000 and the Vite dev server on port 5173 with API requests proxied to the backend.
+   If port `5000` is already taken locally, the server logs a clear message and exits—set the `PORT` variable in `.env` to any
+   open port and restart the command.
 4. **Build for production**
    ```bash
    npm run build
