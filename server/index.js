@@ -225,8 +225,19 @@ app.get('*', (req, res) => {
 
 initializeDb()
   .then(() => {
-    app.listen(PORT, () => {
+    const serverInstance = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+    });
+
+    serverInstance.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(
+          `Port ${PORT} is already in use. Update the PORT environment variable to target an available port.`
+        );
+      } else {
+        console.error('Failed to start server', error);
+      }
+      process.exit(1);
     });
   })
   .catch((error) => {
