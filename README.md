@@ -1,8 +1,6 @@
 ![Sheen Banner](https://raw.githubusercontent.com/74Thirsty/74Thirsty/main/assets/shopsaavy.svg)
 
 
-# Shop Saavy Demo
-
 Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind storefront with a password-protected administration workspace. Store operators can manage inventory, edit landing page content, and now control the live site name without touching code or redeploying servers.
 
 ## Key Features
