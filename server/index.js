@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const net = require('net');
+const path = require('path');
+const { execFile, execFileSync } = require('child_process');
 
 const {
   initializeDb,
@@ -19,6 +21,76 @@ const { resolveFromRoot } = require('./lib/paths');
 const { updateEnvVariable } = require('./lib/updateEnv');
 
 dotenv.config({ path: resolveFromRoot('.env') });
+
+function buildPythonEnv() {
+  const pythonPaths = [resolveFromRoot('src')];
+  if (process.env.PYTHONPATH) {
+    pythonPaths.push(process.env.PYTHONPATH);
+  }
+  return {
+    ...process.env,
+    PYTHONPATH: pythonPaths.join(path.delimiter)
+  };
+}
+
+function runLicenseCommand(command) {
+  return new Promise((resolve, reject) => {
+    execFile(
+      'python3',
+      ['-m', 'core.license_cli', command],
+      {
+        cwd: resolveFromRoot('.'),
+        env: buildPythonEnv(),
+        encoding: 'utf-8'
+      },
+      (error, stdout = '', stderr = '') => {
+        let parsed;
+        if (stdout) {
+          try {
+            parsed = JSON.parse(stdout);
+          } catch (parseError) {
+            reject(new Error(`Unable to parse license response: ${parseError.message}`));
+            return;
+          }
+        } else {
+          parsed = {};
+        }
+
+        if (error) {
+          if (parsed && Object.keys(parsed).length > 0) {
+            resolve(parsed);
+            return;
+          }
+          const message = stderr.trim() || error.message || 'License command failed';
+          reject(new Error(message));
+          return;
+        }
+
+        resolve(parsed);
+      }
+    );
+  });
+}
+
+function validateLicenseOnStartup() {
+  try {
+    execFileSync('python3', ['-m', 'core.license_cli', 'validate'], {
+      cwd: resolveFromRoot('.'),
+      env: buildPythonEnv(),
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    console.info('[LICENSE] Validation succeeded.');
+  } catch (error) {
+    const stderr = error.stderr ? error.stderr.toString().trim() : '';
+    const stdout = error.stdout ? error.stdout.toString().trim() : '';
+    const message = stderr || stdout || error.message || 'License validation failed.';
+    console.error('[LICENSE ERROR]', message);
+    process.exit(1);
+  }
+}
+
+validateLicenseOnStartup();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -130,6 +202,26 @@ app.get('/api/config', (_req, res) => {
   res.json({
     siteName: process.env.SITE_NAME || 'SaavyShop Demo'
   });
+});
+
+app.get('/api/license/status', requireAdmin, async (_req, res) => {
+  try {
+    const payload = await runLicenseCommand('status');
+    res.json(payload);
+  } catch (error) {
+    console.error('Failed to load license status', error);
+    res.status(500).json({ message: 'Failed to load license status' });
+  }
+});
+
+app.post('/api/license/revalidate', requireAdmin, async (_req, res) => {
+  try {
+    const payload = await runLicenseCommand('validate');
+    res.json(payload);
+  } catch (error) {
+    console.error('Failed to revalidate license', error);
+    res.status(500).json({ message: error.message || 'Failed to revalidate license' });
+  }
 });
 
 app.get('/api/products', async (req, res) => {
