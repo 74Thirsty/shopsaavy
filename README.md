@@ -33,8 +33,12 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
      ADMIN_PASSWORD=changeme
      SITE_NAME=SaavyShop Demo
      PORT=5000
+     LICENSE_KEY=YOUR-LICENSE-KEY
      ```
+   - Replace `YOUR-LICENSE-KEY` with the key issued by the Shop Saavy licensing portal or your account representative. You can
+     rotate keys at any time—restart the server after updating the value.
    - The `SITE_NAME` value is automatically maintained when you update it through the admin interface; manual edits are optional.
+   - See [License Configuration](#license-configuration) for additional storage, offline validation, and troubleshooting options.
 3. **Launch the development servers**
    ```bash
    npm run dev
@@ -114,6 +118,33 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 ## License
 
 This project is available under the [Private License](./LICENSE.md).
+
+## License Configuration
+
+Shop Saavy requires a valid license key before the application will launch. The runtime pulls configuration from environment
+variables, optional keyring entries, or local license files. Follow these steps to make sure your instance activates correctly:
+
+1. **Retrieve your key** – Sign in to the Shop Saavy licensing portal (or contact your account representative) to obtain the
+   25-character license key tied to your organization.
+2. **Store the key securely** – The application reads the key in this order:
+   - `LICENSE_KEY` environment variable (recommended; add it to `.env` for local development or provision it via your hosting
+     provider's secret manager).
+   - System keyring entry: service `shopsaavy`, account `license_key`.
+   - License file at `~/.license_key` or `~/.config/shopsaavy/license_key` containing the raw key value.
+3. **Validate the key** – Run the CLI helper to confirm activation before starting the app:
+   ```bash
+   python -m src.core.license_cli validate
+   ```
+   A JSON payload prints to the console. If validation fails, the response includes an error message and the key will not be
+   cached.
+4. **Understand offline behaviour** – Successful validation caches a signed payload to `~/.app_cache/license.json` and
+   `~/.app_cache/license.key` (override via `LICENSE_CACHE_PATH` and `LICENSE_LOCAL_KEY_PATH`). When the license server is
+   unreachable, the cache is accepted for 24 hours from the last validation or until the embedded expiry timestamp lapses.
+5. **Review logs** – All license events are written to `/logs/license.log` by default (override with `LICENSE_LOG_PATH`). Check
+   this file if the app exits with `[LICENSE ERROR]` to see detailed diagnostics.
+
+> **Tip:** In containerized or PaaS deployments, mount a writable directory for the cache path so the instance can persist
+> offline tokens between restarts.
 
 [![Video Title](https://img.youtube.com/vi/8F2M70TRTv0/maxresdefault.jpg)](https://www.youtube.com/watch?v=8F2M70TRTv0)
 
