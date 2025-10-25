@@ -12,7 +12,8 @@ Welcome to the comprehensive user guide for the Shop Saavy demo storefront and a
 
 ## Quick Start Checklist
 
-1. **Install and configure the application** using the root-level [README](../README.md) instructions.
+1. **Install and configure the application** using the root-level [README](../README.md) instructions, including the
+   [License Configuration Guide](./LICENSE_CONFIGURATION.md).
 2. **Create administrative credentials** by setting the `ADMIN_PASSWORD` value in `.env`.
 3. **Launch the dev or production server** with `npm run dev` (development) or `npm start` (after `npm run build`).
 4. **Load the storefront** at `http://localhost:5173/` (development) or your deployed hostname.
