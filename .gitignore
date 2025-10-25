@@ -3,5 +3,7 @@ client/node_modules/
 client/dist/
 .env
 *.log
+__pycache__/
+*.pyc
 data/*.sqlite
 .DS_Store

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 
 export default function SiteSettingsPanel({
   siteName,
@@ -18,6 +19,11 @@ export default function SiteSettingsPanel({
   const [submitting, setSubmitting] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState(layout ?? layoutOptions?.[0]?.value ?? 'classic');
   const previousTheme = useRef(theme);
+  const [activeTab, setActiveTab] = useState('brand');
+  const [licenseData, setLicenseData] = useState(null);
+  const [licenseError, setLicenseError] = useState(null);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseRefreshing, setLicenseRefreshing] = useState(false);
 
   useEffect(() => {
     setValue(siteName ?? '');
@@ -90,8 +96,156 @@ export default function SiteSettingsPanel({
     [themeOptions, theme]
   );
 
-  return (
-    <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+  const fetchLicenseStatus = useCallback(async () => {
+    if (!password) {
+      setLicenseError('Provide the admin password to view license details.');
+      setLicenseData(null);
+      return;
+    }
+
+    setLicenseLoading(true);
+    setLicenseError(null);
+    try {
+      const response = await axios.get('/api/license/status', {
+        headers: {
+          'x-admin-password': password
+        }
+      });
+      setLicenseData(response.data);
+    } catch (err) {
+      const message = err?.response?.data?.message || err?.message || 'Failed to load license status.';
+      setLicenseError(message);
+      if (err?.response?.data && typeof err.response.data === 'object') {
+        setLicenseData(err.response.data);
+      }
+    } finally {
+      setLicenseLoading(false);
+    }
+  }, [password]);
+
+  useEffect(() => {
+    if (activeTab === 'license') {
+      fetchLicenseStatus();
+    }
+  }, [activeTab, password, fetchLicenseStatus]);
+
+  const handleRevalidate = async () => {
+    if (!password) {
+      setLicenseError('Provide the admin password to revalidate the license.');
+      return;
+    }
+    setLicenseRefreshing(true);
+    setLicenseError(null);
+    try {
+      const response = await axios.post(
+        '/api/license/revalidate',
+        {},
+        {
+          headers: {
+            'x-admin-password': password
+          }
+        }
+      );
+      setLicenseData(response.data);
+      if (response.data?.valid === false) {
+        setLicenseError(response.data?.error || 'License validation failed.');
+      }
+    } catch (err) {
+      const message = err?.response?.data?.message || err?.message || 'Failed to revalidate license.';
+      setLicenseError(message);
+      if (err?.response?.data && typeof err.response.data === 'object') {
+        setLicenseData(err.response.data);
+      }
+    } finally {
+      setLicenseRefreshing(false);
+    }
+  };
+
+  const licenseStatus = licenseData?.status || {};
+  const licenseValid = licenseStatus?.valid;
+  const parsedExpiry = licenseStatus?.expiry ? new Date(licenseStatus.expiry) : null;
+  const licenseExpiryText = parsedExpiry && !Number.isNaN(parsedExpiry.getTime()) ? parsedExpiry.toLocaleString() : 'Not provided';
+  const licenseKeyDisplay = licenseStatus?.license_key || 'Unavailable';
+  const licenseMessage = licenseData?.error || licenseStatus?.message;
+  const licenseStateLabel =
+    licenseValid === undefined ? 'Unknown' : licenseValid ? 'Active' : 'Invalid';
+  const licenseStateClass =
+    licenseValid === undefined
+      ? 'bg-slate-200 text-slate-700'
+      : licenseValid
+      ? 'bg-emerald-100 text-emerald-700'
+      : 'bg-rose-100 text-rose-700';
+
+  const renderLicenseTab = () => (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">License</p>
+        <h2 className="text-2xl font-semibold text-slate-900">License overview</h2>
+        <p className="text-sm text-slate-500">
+          View the currently configured license key, status, and expiry. Revalidate to trigger an immediate check with the
+          licensing service.
+        </p>
+      </div>
+      {licenseError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{licenseError}</div>
+      ) : null}
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">License key</dt>
+          <dd className="mt-2 text-lg font-mono text-slate-800">{licenseKeyDisplay}</dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Status</dt>
+          <dd className="mt-2 flex items-center gap-2 text-lg">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${licenseStateClass}`}
+            >
+              {licenseStateLabel}
+            </span>
+            {licenseMessage ? (
+              <span className="text-sm text-slate-500">{licenseMessage}</span>
+            ) : licenseValid === undefined ? (
+              <span className="text-sm text-slate-500">No validation has been recorded yet.</span>
+            ) : null}
+          </dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Expiry</dt>
+          <dd className="mt-2 text-lg text-slate-800">{licenseExpiryText}</dd>
+        </div>
+        <div className="rounded-2xl border border-slate-200 p-4">
+          <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Last check</dt>
+          <dd className="mt-2 text-lg text-slate-800">
+            {licenseStatus?.validated_at
+              ? new Date(licenseStatus.validated_at).toLocaleString()
+              : 'Use revalidate to refresh'}
+          </dd>
+        </div>
+      </dl>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleRevalidate}
+          disabled={licenseLoading || licenseRefreshing}
+          className="rounded-full bg-brand px-5 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:bg-brand-dark disabled:opacity-60"
+        >
+          {licenseRefreshing ? 'Revalidating…' : 'Revalidate license'}
+        </button>
+        <button
+          type="button"
+          onClick={fetchLicenseStatus}
+          disabled={licenseLoading || licenseRefreshing}
+          className="rounded-full border border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-slate-400 disabled:opacity-60"
+        >
+          Refresh status
+        </button>
+        {licenseLoading ? <span className="text-sm text-slate-500">Checking license status…</span> : null}
+      </div>
+    </div>
+  );
+
+  const renderBrandTab = () => (
+    <div className="space-y-6">
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Brand settings</p>
         <h2 className="text-2xl font-semibold text-slate-900">Site identity</h2>
@@ -185,6 +339,38 @@ export default function SiteSettingsPanel({
           </button>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <section className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-slate-900">Settings</h2>
+          <p className="text-sm text-slate-500">Manage core brand settings and licensing information.</p>
+        </div>
+        <div className="flex gap-2 rounded-full border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('brand')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition ${
+              activeTab === 'brand' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Brand
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('license')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] transition ${
+              activeTab === 'license' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            License
+          </button>
+        </div>
+      </div>
+      {activeTab === 'brand' ? renderBrandTab() : renderLicenseTab()}
     </section>
   );
 }
