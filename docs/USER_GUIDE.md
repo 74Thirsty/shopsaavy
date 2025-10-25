@@ -108,5 +108,6 @@ The **Checkout Integrations** panel powers the checkout hub experience:
 
 - [README](../README.md) – Architecture overview, API reference, and deployment notes.
 - [LICENSE](../LICENSE.md) – Licensing details for using or extending the demo.
+- [Licensing Wiki](./wiki/LICENSING_WIKI.md) – Admin playbooks for issuing, rotating, and auditing license keys.
 
 With these tools in place, your team can operate a secure checkout workflow while offering low-cost alternatives for budget-conscious customers.

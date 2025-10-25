@@ -3,11 +3,25 @@
 This guide explains how to activate Shop Saavy with your commercial license key, manage offline validation, and troubleshoot
 common setup issues.
 
-## 1. Obtain Your License Key
+## 1. Obtain or Generate Your License Key
 
-1. Sign in to the Shop Saavy licensing portal using the account that purchased the software.
-2. Locate the license assigned to your environment and copy the 25-character key.
-3. If you cannot access the portal, contact your account representative or support to have the key re-issued.
+1. Sign in to the Shop Saavy licensing portal at `https://portal.licenseserver.com` using an account with the **License Manager** role.
+2. Navigate to **Licenses → Issue License** and choose the appropriate plan (Personal or Business), seat count, and expiry date.
+3. Click **Generate License**. The portal returns a 25-character key and emails a copy to the assignee.
+4. Automating provisioning? Call the issuance API instead of the UI:
+   ```bash
+   curl -X POST https://api.licenseserver.com/v1/licenses \
+     -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "product": "shop-saavy",
+       "plan": "business",
+       "seats": 1,
+       "expires_at": "2025-12-31T23:59:59Z"
+     }'
+   ```
+   The response includes `license_key`, `status`, and `expires_at`. Save the `license_key` in your secrets manager and continue to the next step.
+5. If you cannot reach the portal or API, email `support@licenseserver.com` to have the key issued manually.
 
 ## 2. Provide the License to the Application
 
@@ -63,5 +77,7 @@ obfuscated view of the key used.
 | `License expired.` | Renew your license or contact support to extend the expiry date. |
 | `Offline validation unavailable.` | Connect to the internet at least once to perform a successful validation so the cache file can be written. |
 | No log file created | Ensure the directory containing `LICENSE_LOG_PATH` exists and is writable by the process user. |
+
+For rotation, revocation, and automation playbooks see the in-repo wiki article at [`docs/wiki/LICENSING_WIKI.md`](./wiki/LICENSING_WIKI.md).
 
 With a valid license in place, you can start Shop Saavy using the normal `npm run dev` or production startup commands.

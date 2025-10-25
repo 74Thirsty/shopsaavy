@@ -124,8 +124,24 @@ This project is available under the [Private License](./LICENSE.md).
 Shop Saavy requires a valid license key before the application will launch. The runtime pulls configuration from environment
 variables, optional keyring entries, or local license files. Follow these steps to make sure your instance activates correctly:
 
-1. **Retrieve your key** – Sign in to the Shop Saavy licensing portal (or contact your account representative) to obtain the
-   25-character license key tied to your organization.
+1. **Generate or retrieve your key** – Sign in to the Shop Saavy Licensing Console (`https://portal.licenseserver.com`) with an
+   account that has the *License Manager* role.
+   - From the **Licenses → Issue License** screen pick the product tier (Personal or Business), the maximum instance count, and
+     the expiry date. The console produces a 25-character key and emails a copy to the assignee. You can reissue keys at any
+     time from the same view.
+   - Prefer automation? Use the issuance API instead of the UI:
+     ```bash
+     curl -X POST https://api.licenseserver.com/v1/licenses \
+       -H "Authorization: Bearer <ADMIN_TOKEN>" \
+       -H "Content-Type: application/json" \
+       -d '{
+         "product": "shop-saavy",
+         "plan": "business",
+         "seats": 1,
+         "expires_at": "2025-12-31T23:59:59Z"
+       }'
+     ```
+     The response includes `license_key`, `expires_at`, and `status`. Copy `license_key` into your environment configuration.
 2. **Store the key securely** – The application reads the key in this order:
    - `LICENSE_KEY` environment variable (recommended; add it to `.env` for local development or provision it via your hosting
      provider's secret manager).
@@ -145,6 +161,10 @@ variables, optional keyring entries, or local license files. Follow these steps 
 
 > **Tip:** In containerized or PaaS deployments, mount a writable directory for the cache path so the instance can persist
 > offline tokens between restarts.
+
+For deeper operational guidance—including automated renewal workflows, revocation procedures, and license visibility inside the
+admin panel—see the [License Configuration Guide](./docs/LICENSE_CONFIGURATION.md) and the wiki article
+[`docs/wiki/LICENSING_WIKI.md`](./docs/wiki/LICENSING_WIKI.md).
 
 [![Video Title](https://img.youtube.com/vi/8F2M70TRTv0/maxresdefault.jpg)](https://www.youtube.com/watch?v=8F2M70TRTv0)
 
