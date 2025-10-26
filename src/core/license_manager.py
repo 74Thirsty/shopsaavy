@@ -1,17 +1,19 @@
-"""License validation module for the application."""
+"""Offline license validation backed by signed tokens."""
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-import ssl
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib import error, request
-import hashlib
+
+from .license_verifier import (
+    LicenseVerificationError,
+    normalize_token,
+    verify_token,
+)
 
 
 class LicenseValidationError(Exception):
@@ -20,23 +22,15 @@ class LicenseValidationError(Exception):
 
 @dataclass
 class LicenseStatus:
-    """Represents the status returned from the validation endpoint."""
+    """Represents the status of the most recent validation."""
 
     valid: bool
     expiry: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
 
-    @property
-    def expiry_datetime(self) -> Optional[datetime]:
-        if not self.expiry:
-            return None
-        return _parse_datetime(self.expiry)
-
     def to_dict(self) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "valid": self.valid,
-        }
+        payload: Dict[str, Any] = {"valid": self.valid}
         if self.expiry is not None:
             payload["expiry"] = self.expiry
         if self.details is not None:
@@ -45,125 +39,105 @@ class LicenseStatus:
             payload["message"] = self.message
         return payload
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LicenseStatus":
-        return cls(
-            valid=bool(data.get("valid", False)),
-            expiry=data.get("expiry"),
-            details=data.get("details"),
-            message=data.get("message"),
-        )
-
 
 class LicenseManager:
-    """Manages license validation and caching."""
-
-    VALIDATION_URL = "https://api.licenseserver.com/validate"
-    CACHE_DURATION = timedelta(hours=24)
+    """Manage offline license validation using the embedded public key."""
 
     def __init__(
         self,
-        license_key: Optional[str] = None,
-        cache_path: Optional[Path] = None,
+        license_token: Optional[str] = None,
+        *,
         log_path: Optional[Path] = None,
-        local_license_path: Optional[Path] = None,
+        public_key_path: Optional[Path] = None,
+        expected_product: Optional[str] = None,
+        expected_version: Optional[str] = None,
     ) -> None:
-        cache_env = os.getenv("LICENSE_CACHE_PATH")
         log_env = os.getenv("LICENSE_LOG_PATH")
-        local_env = os.getenv("LICENSE_LOCAL_KEY_PATH")
-        self.cache_file = Path(cache_env) if cache_env else (cache_path or Path.home() / ".app_cache" / "license.json")
+        public_key_env = os.getenv("LICENSE_PUBLIC_KEY_PATH")
+        product_env = os.getenv("LICENSE_PRODUCT")
+        version_env = os.getenv("LICENSE_VERSION")
+
         self.log_file = Path(log_env) if log_env else (log_path or Path("/logs/license.log"))
-        self.local_license_file = (
-            Path(local_env)
-            if local_env
-            else (local_license_path or Path.home() / ".app_cache" / "license.key")
+        self.public_key_path = (
+            Path(public_key_env)
+            if public_key_env
+            else (public_key_path or Path(__file__).with_name("license_public.pem"))
         )
-        self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+        self.expected_product = expected_product or product_env
+        self.expected_version = expected_version or version_env
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        self.local_license_file.parent.mkdir(parents=True, exist_ok=True)
-        self.license_key = license_key or self._load_license_key()
+
+        self.license_token = license_token or self._load_license_token()
         self._status: Optional[LicenseStatus] = None
         self._last_validated_at: Optional[str] = None
         self._logger = self._configure_logger()
 
+    # Public API -----------------------------------------------------
+
     def validate_license(self) -> bool:
-        """Validate the license key with caching support."""
-        if not self.license_key:
-            raise LicenseValidationError("No license key provided.")
+        """Validate the configured license token."""
 
-        cached = self._load_cache()
-        if cached:
-            self._status = cached
-            if cached.valid and not self._is_expired(cached):
-                self._log_event("License validation succeeded (cached result).")
-                return True
+        if not self.license_token:
+            raise LicenseValidationError("No license token provided.")
 
-        used_offline = False
-        try:
-            status = self._perform_remote_validation()
-        except LicenseValidationError as exc:
-            self._log_event(f"License validation failed (remote validation): {exc}", logging.ERROR)
-            raise
-        except Exception as exc:  # pragma: no cover - defensive logging
-            self._log_event(
-                f"Remote validation unavailable ({exc}); attempting offline validation.",
-                logging.WARNING,
-            )
-            try:
-                status = self._perform_offline_validation()
-                used_offline = True
-            except LicenseValidationError as offline_error:
-                self._log_event(f"License validation failed (offline validation): {offline_error}", logging.ERROR)
-                raise
-
-        if not status.valid:
-            message = status.message or "Invalid license."
-            self._log_event(f"License validation failed: {message}", logging.ERROR)
+        if not self.public_key_path.exists():
+            message = f"License public key not found at {self.public_key_path}"
+            self._log_event(message, logging.ERROR)
             raise LicenseValidationError(message)
 
-        if self._is_expired(status):
+        token = normalize_token(self.license_token)
+        try:
+            payload = verify_token(
+                self.public_key_path,
+                token,
+                expected_product=self.expected_product,
+                expected_version=self.expected_version,
+            )
+        except (OSError, LicenseVerificationError) as exc:
+            message = str(exc) or "Invalid license."
+            self._log_event(f"License validation failed: {message}", logging.ERROR)
+            raise LicenseValidationError(message) from exc
+
+        if payload.is_expired:
             message = "License expired."
             self._log_event(message, logging.ERROR)
             raise LicenseValidationError(message)
 
-        self._status = status
-        self._write_cache(status)
-        if used_offline:
-            self._log_event("License validation succeeded (offline validation).")
-        else:
-            self._log_event("License validation succeeded (remote validation).")
+        expiry_iso = datetime.fromtimestamp(payload.expiry, tz=timezone.utc).isoformat()
+        self._status = LicenseStatus(
+            valid=True,
+            expiry=expiry_iso,
+            details=payload.to_details(),
+        )
+        self._last_validated_at = datetime.now(timezone.utc).isoformat()
+        self._log_event("License validation succeeded.")
         return True
 
     def get_license_status(self) -> Dict[str, Any]:
-        """Return the most recent license status."""
+        """Return the last known license validation status."""
+
         if self._status:
             result = self._status.to_dict()
-            if self.license_key:
+            if self.license_token:
                 result.setdefault("license_key", self._obfuscate_key())
             if self._last_validated_at:
                 result.setdefault("validated_at", self._last_validated_at)
             return result
-        cached = self._load_cache()
-        if cached:
-            result = cached.to_dict()
-            if self.license_key:
-                result.setdefault("license_key", self._obfuscate_key())
-            if self._last_validated_at:
-                result.setdefault("validated_at", self._last_validated_at)
-            return result
-        payload: Dict[str, Any] = {}
-        if self.license_key:
+
+        payload: Dict[str, Any] = {"valid": False}
+        if self.license_token:
             payload["license_key"] = self._obfuscate_key()
         if self._last_validated_at:
             payload["validated_at"] = self._last_validated_at
         return payload
 
-    # Internal helpers -------------------------------------------------
+    # Internal helpers ----------------------------------------------
 
-    def _load_license_key(self) -> str:
-        key = os.getenv("LICENSE_KEY")
-        if key:
-            return key.strip()
+    def _load_license_token(self) -> str:
+        for env_var in ("LICENSE_TOKEN", "LICENSE_KEY"):
+            value = os.getenv(env_var)
+            if value:
+                return value.strip()
 
         try:
             import keyring  # type: ignore
@@ -175,7 +149,9 @@ class LicenseManager:
             pass
 
         possible_files = [
+            Path.home() / ".license_token",
             Path.home() / ".license_key",
+            Path.home() / ".config" / "shopsaavy" / "license_token",
             Path.home() / ".config" / "shopsaavy" / "license_key",
         ]
         for file_path in possible_files:
@@ -187,97 +163,6 @@ class LicenseManager:
                 except OSError:
                     continue
         return ""
-
-    def _perform_remote_validation(self) -> LicenseStatus:
-        payload = json.dumps({"license_key": self.license_key}).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        ssl_context = ssl.create_default_context()
-        request_obj = request.Request(
-            self.VALIDATION_URL,
-            data=payload,
-            headers=headers,
-            method="POST",
-        )
-        try:
-            with request.urlopen(request_obj, context=ssl_context, timeout=10) as response:
-                if response.status != 200:
-                    raise LicenseValidationError(
-                        f"Unexpected response status: {response.status}"
-                    )
-                response_data = response.read().decode("utf-8")
-                parsed = json.loads(response_data or "{}")
-        except error.URLError as exc:
-            raise exc
-        except json.JSONDecodeError as exc:
-            raise LicenseValidationError("Invalid response from license server") from exc
-
-        valid = bool(parsed.get("valid"))
-        status = LicenseStatus(
-            valid=valid,
-            expiry=parsed.get("expiry"),
-            details=parsed.get("details"),
-            message=parsed.get("message"),
-        )
-        if not status.valid:
-            raise LicenseValidationError(status.message or "Invalid license.")
-        return status
-
-    def _perform_offline_validation(self) -> LicenseStatus:
-        cached = self._load_cache()
-        if cached and cached.valid and not self._is_expired(cached):
-            self._log_event("Using cached license validation result due to offline mode.")
-            return cached
-
-        if self.local_license_file.exists():
-            try:
-                payload = json.loads(self.local_license_file.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc:
-                raise LicenseValidationError("Invalid local license file.") from exc
-            stored_hash = payload.get("license_hash")
-            if stored_hash != self._license_hash:
-                raise LicenseValidationError("License key mismatch in local file.")
-            status = LicenseStatus.from_dict(payload.get("status", {}))
-            if not status.valid or self._is_expired(status):
-                raise LicenseValidationError("Local license expired or invalid.")
-            self._last_validated_at = payload.get("validated_at")
-            return status
-
-        raise LicenseValidationError("Offline validation unavailable.")
-
-    def _write_cache(self, status: LicenseStatus) -> None:
-        cache_payload = {
-            "license_hash": self._license_hash,
-            "status": status.to_dict(),
-            "validated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        try:
-            self.cache_file.write_text(json.dumps(cache_payload), encoding="utf-8")
-            self.local_license_file.write_text(json.dumps(cache_payload), encoding="utf-8")
-            self._last_validated_at = cache_payload["validated_at"]
-        except OSError:
-            self._log_event("Unable to write license cache.", logging.WARNING)
-
-    def _load_cache(self) -> Optional[LicenseStatus]:
-        self._last_validated_at = None
-        if not self.cache_file.exists():
-            return None
-        try:
-            payload = json.loads(self.cache_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-
-        if payload.get("license_hash") != self._license_hash:
-            return None
-        validated_at_raw = payload.get("validated_at")
-        if not validated_at_raw:
-            return None
-        validated_at = _parse_datetime(validated_at_raw)
-        if not validated_at:
-            return None
-        if datetime.now(timezone.utc) - validated_at > self.CACHE_DURATION:
-            return None
-        self._last_validated_at = payload.get("validated_at")
-        return LicenseStatus.from_dict(payload.get("status", {}))
 
     def _configure_logger(self) -> logging.Logger:
         try:
@@ -304,40 +189,13 @@ class LicenseManager:
         self._logger.log(level, formatted_message)
 
     def _obfuscate_key(self) -> str:
-        if not self.license_key:
+        if not self.license_token:
             return "UNKNOWN"
-        sanitized = self.license_key.replace("-", "").replace(" ", "")
-        if len(sanitized) < 4:
-            tail = sanitized.upper()
-        else:
-            tail = sanitized[-4:].upper()
+        sanitized = "".join(ch for ch in self.license_token if ch.isalnum()).upper()
+        if not sanitized:
+            sanitized = self.license_token[-4:].upper()
+        tail = sanitized[-4:] if len(sanitized) >= 4 else sanitized
         return f"XXXX-XXXX-{tail}"
-
-    @property
-    def _license_hash(self) -> str:
-        return hashlib.sha256(self.license_key.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _is_expired(status: LicenseStatus) -> bool:
-        expiry = status.expiry_datetime
-        if not expiry:
-            return False
-        now = datetime.now(timezone.utc)
-        return expiry < now
-
-
-def _parse_datetime(value: str) -> Optional[datetime]:
-    if not value:
-        return None
-    try:
-        if value.endswith("Z"):
-            value = value[:-1] + "+00:00"
-        return datetime.fromisoformat(value)
-    except ValueError:
-        try:
-            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S%z")
-        except ValueError:
-            return None
 
 
 __all__ = [
