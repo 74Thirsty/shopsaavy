@@ -23,6 +23,28 @@ common setup issues.
    The response includes `license_key`, `status`, and `expires_at`. Save the `license_key` in your secrets manager and continue to the next step.
 5. If you cannot reach the portal or API, email `support@licenseserver.com` to have the key issued manually.
 
+### Offline issuance with the built-in tool
+
+If you are distributing just a handful of copies and do not have the hosted licensing service running yet, you can generate
+cryptographically signed keys locally:
+
+```bash
+export LICENSE_SIGNING_SECRET="super-secret"
+python -m src.core.license_tool generate "Customer Name"
+```
+
+The command emits a JSON document that contains the license key and the embedded payload (customer, expiry, plan, seats, and
+any optional metadata). Share the `license_key` with the customer and retain the payload for your internal records.
+
+To verify the contents of an issued offline license later on, run:
+
+```bash
+python -m src.core.license_tool inspect "SAOFF1-..." --signing-secret "$LICENSE_SIGNING_SECRET"
+```
+
+> **Important:** Keep `LICENSE_SIGNING_SECRET` private. The same secret must be configured on every runtime that should accept
+> the offline keys you generate.
+
 ## 2. Provide the License to the Application
 
 The runtime checks for a license key in multiple secure locations. Supply the key using whichever option best fits your
@@ -35,6 +57,9 @@ infrastructure:
 | 3 | License file | Save the raw key to `~/.license_key` or `~/.config/shopsaavy/license_key`. Ensure file permissions restrict access to the service user. |
 
 You can change the key at any time. Restart the application after rotating keys so the new value is loaded into memory.
+
+When relying on offline licenses, also set `LICENSE_SIGNING_SECRET` on the host so the runtime can verify the signature locally
+without contacting the remote validation API.
 
 ## 3. Validate the License
 
@@ -60,7 +85,8 @@ python -m src.core.license_cli status
 - Override these paths with `LICENSE_CACHE_PATH` and `LICENSE_LOCAL_KEY_PATH` if you prefer a custom directory. Ensure the
   process user has read/write access.
 - The cached file includes an expiry timestamp. If the timestamp has passed or the cache is older than 24 hours, the
-  application will re-contact the license server.
+  application will re-contact the license server. Offline signatures generated with `license_tool` are treated the same way—the
+  runtime first verifies the signature locally and then persists the payload to the cache files.
 
 ## 5. Logging
 
@@ -75,7 +101,8 @@ obfuscated view of the key used.
 | `No license key provided.` | Confirm the key is present in one of the supported storage locations and restart the app. |
 | `Invalid license.` | Double-check that the key matches the value issued in the portal. Typos and expired keys trigger this response. |
 | `License expired.` | Renew your license or contact support to extend the expiry date. |
-| `Offline validation unavailable.` | Connect to the internet at least once to perform a successful validation so the cache file can be written. |
+| `Offline validation unavailable.` | Connect to the internet at least once to perform a successful validation so the cache file can be written, or configure `LICENSE_SIGNING_SECRET` and issue a signed offline key. |
+| `Offline license signature mismatch.` | Regenerate the license using `license_tool` and ensure the runtime uses the same `LICENSE_SIGNING_SECRET`. |
 | No log file created | Ensure the directory containing `LICENSE_LOG_PATH` exists and is writable by the process user. |
 
 For rotation, revocation, and automation playbooks see the in-repo wiki article at [`docs/wiki/LICENSING_WIKI.md`](./wiki/LICENSING_WIKI.md).

@@ -13,6 +13,7 @@ This wiki entry consolidates everything administrators and engineers need to kno
 | **License Manager** | Python component in `src/core/license_manager.py` responsible for validation, caching, and logging inside Shop Saavy. |
 | **Activation Cache** | JSON payload written to `~/.app_cache/license.json` (override with `LICENSE_CACHE_PATH`) used for offline validation. |
 | **Local License Mirror** | Copy of the activation cache saved to `~/.app_cache/license.key` (override with `LICENSE_LOCAL_KEY_PATH`). |
+| **Offline License Tool** | CLI shipped at `python -m src.core.license_tool` for generating and inspecting signed offline licenses. |
 
 ---
 
@@ -65,6 +66,26 @@ Store `license_key` securely. The API returns HTTP 409 if a duplicate active lic
 
 > **Tip:** Use the optional `metadata` object to embed CRM IDs or invoice numbers—Shop Saavy never reads it, but it’s included in audit exports.
 
+### 2.3 Generating Offline Licenses (no server)
+
+For small-scale distribution without the hosted licensing stack, issue signed keys locally:
+
+```bash
+export LICENSE_SIGNING_SECRET="super-secret"
+python -m src.core.license_tool generate "Customer Name" --plan personal --seats 1 --feature beta-dashboard
+```
+
+The tool prints a JSON blob that includes the `license_key` and the embedded payload. Share only the key with the customer. Keep
+`LICENSE_SIGNING_SECRET` private and reuse it on every runtime that should accept the offline licenses you generate.
+
+To audit or double-check an issued offline key later:
+
+```bash
+python -m src.core.license_tool inspect "SAOFF1-..." --signing-secret "$LICENSE_SIGNING_SECRET"
+```
+
+If the signature no longer matches (for example after editing the payload), the command exits with `Offline license signature mismatch.`
+
 ---
 
 ## 3. Distributing & Installing Keys
@@ -73,6 +94,7 @@ Store `license_key` securely. The API returns HTTP 409 if a duplicate active lic
 2. In local development, duplicate `.env.example` and add `LICENSE_KEY=<value>`.
 3. CI/CD pipelines should inject the key as an environment variable during deployment.
 4. For air-gapped appliances, drop the key into `~/.license_key` and ensure only the service account can read it (`chmod 600`).
+5. When using offline licenses, configure `LICENSE_SIGNING_SECRET` alongside `LICENSE_KEY` so the runtime can verify the signature without reaching the remote API.
 
 ---
 
@@ -80,7 +102,7 @@ Store `license_key` securely. The API returns HTTP 409 if a duplicate active lic
 
 - On every boot the backend runs `python -m src.core.license_cli validate`. Failure exits the Node.js process with `[LICENSE ERROR]`.
 - Administrators can inspect the license inside **Admin → Site Settings → License** where the UI calls `/api/license/status` and `/api/license/revalidate`.
-- Successful validations populate `valid`, `expiry`, and `license_key` (obfuscated) fields returned to the UI.
+- Successful validations populate `valid`, `expiry`, and `license_key` (obfuscated) fields returned to the UI. If the key uses the offline signature format, the Python manager verifies the signature locally before consulting the hosted API.
 
 ### 4.1 Scheduled Revalidation
 
@@ -120,6 +142,8 @@ If the command exits non-zero, alert the on-call engineer so they can rotate the
 | `License key mismatch in local file.` | Cache contains a different key hash. | Delete cache files in `~/.app_cache` and revalidate with the correct key. |
 | Admin UI shows `Unknown` status | Admin password missing in request headers. | Provide `x-admin-password` header matching `ADMIN_PASSWORD`. |
 | CLI cannot reach licensing API | Network or firewall block. | Ensure outbound HTTPS access to `api.licenseserver.com` or provision an allow-list entry. |
+| `Offline license signature mismatch.` | The key was altered or generated with a different secret. | Regenerate the license with `license_tool` and confirm the runtime uses the same `LICENSE_SIGNING_SECRET`. |
+| `Offline validation unavailable.` | Missing cache and no signing secret configured. | Set `LICENSE_SIGNING_SECRET` or allow a one-time remote validation to seed the cache. |
 
 ---
 
@@ -142,6 +166,12 @@ python -m src.core.license_cli validate | python -m json.tool
 
 # Remove local cache (forces a fresh remote validation on next run)
 rm ~/.app_cache/license.json ~/.app_cache/license.key
+
+# Generate an offline license for manual distribution
+python -m src.core.license_tool generate "Customer Name"
+
+# Inspect the payload of an offline license and verify its signature
+python -m src.core.license_tool inspect "SAOFF1-..."
 ```
 
 Keep this wiki page in sync with vendor policy changes and portal updates. When in doubt, contact the licensing team at `support@licenseserver.com`.
