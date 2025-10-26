@@ -13,6 +13,8 @@ from typing import Any, Dict, Optional
 from urllib import error, request
 import hashlib
 
+from .license_offline import OfflineLicenseError, is_offline_license, verify_offline_license
+
 
 class LicenseValidationError(Exception):
     """Raised when a license fails validation."""
@@ -67,10 +69,12 @@ class LicenseManager:
         cache_path: Optional[Path] = None,
         log_path: Optional[Path] = None,
         local_license_path: Optional[Path] = None,
+        signing_secret: Optional[str] = None,
     ) -> None:
         cache_env = os.getenv("LICENSE_CACHE_PATH")
         log_env = os.getenv("LICENSE_LOG_PATH")
         local_env = os.getenv("LICENSE_LOCAL_KEY_PATH")
+        secret_env = os.getenv("LICENSE_SIGNING_SECRET")
         self.cache_file = Path(cache_env) if cache_env else (cache_path or Path.home() / ".app_cache" / "license.json")
         self.log_file = Path(log_env) if log_env else (log_path or Path("/logs/license.log"))
         self.local_license_file = (
@@ -82,6 +86,7 @@ class LicenseManager:
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.local_license_file.parent.mkdir(parents=True, exist_ok=True)
         self.license_key = license_key or self._load_license_key()
+        self.signing_secret = signing_secret or secret_env or ""
         self._status: Optional[LicenseStatus] = None
         self._last_validated_at: Optional[str] = None
         self._logger = self._configure_logger()
@@ -90,6 +95,13 @@ class LicenseManager:
         """Validate the license key with caching support."""
         if not self.license_key:
             raise LicenseValidationError("No license key provided.")
+
+        offline_status = self._attempt_offline_validation()
+        if offline_status:
+            self._status = offline_status
+            self._write_cache(offline_status)
+            self._log_event("License validation succeeded (offline signature).")
+            return True
 
         cached = self._load_cache()
         if cached:
@@ -324,6 +336,31 @@ class LicenseManager:
             return False
         now = datetime.now(timezone.utc)
         return expiry < now
+
+    def _attempt_offline_validation(self) -> Optional[LicenseStatus]:
+        if not self.signing_secret or not self.license_key:
+            return None
+        if not is_offline_license(self.license_key):
+            return None
+        try:
+            payload = verify_offline_license(self.signing_secret, self.license_key)
+        except OfflineLicenseError as exc:
+            raise LicenseValidationError(str(exc))
+
+        expiry = payload.get("expires_at")
+        details = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"expires_at", "version"}
+        }
+        status = LicenseStatus(
+            valid=True,
+            expiry=expiry,
+            details=details,
+            message="Offline license validated locally.",
+        )
+        self._last_validated_at = datetime.now(timezone.utc).isoformat()
+        return status
 
 
 def _parse_datetime(value: str) -> Optional[datetime]:

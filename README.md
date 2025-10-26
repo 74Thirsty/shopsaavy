@@ -33,8 +33,12 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
      ADMIN_PASSWORD=changeme
      SITE_NAME=SaavyShop Demo
      PORT=5000
+     LICENSE_KEY=YOUR-LICENSE-KEY
      ```
+   - Replace `YOUR-LICENSE-KEY` with the key issued by the Shop Saavy licensing portal or your account representative. You can
+     rotate keys at any time—restart the server after updating the value.
    - The `SITE_NAME` value is automatically maintained when you update it through the admin interface; manual edits are optional.
+   - See [License Configuration](#license-configuration) for additional storage, offline validation, and troubleshooting options.
 3. **Launch the development servers**
    ```bash
    npm run dev
@@ -114,6 +118,61 @@ Shop Saavy is a full-stack retail showcase that pairs a modern React + Tailwind 
 ## License
 
 This project is available under the [Private License](./LICENSE.md).
+
+## License Configuration
+
+Shop Saavy requires a valid license key before the application will launch. The runtime pulls configuration from environment
+variables, optional keyring entries, or local license files. Follow these steps to make sure your instance activates correctly:
+
+1. **Generate or retrieve your key** – Sign in to the Shop Saavy Licensing Console (`https://portal.licenseserver.com`) with an
+   account that has the *License Manager* role.
+   - From the **Licenses → Issue License** screen pick the product tier (Personal or Business), the maximum instance count, and
+     the expiry date. The console produces a 25-character key and emails a copy to the assignee. You can reissue keys at any
+     time from the same view.
+   - Prefer automation? Use the issuance API instead of the UI:
+     ```bash
+     curl -X POST https://api.licenseserver.com/v1/licenses \
+       -H "Authorization: Bearer <ADMIN_TOKEN>" \
+       -H "Content-Type: application/json" \
+       -d '{
+         "product": "shop-saavy",
+         "plan": "business",
+         "seats": 1,
+         "expires_at": "2025-12-31T23:59:59Z"
+       }'
+     ```
+     The response includes `license_key`, `expires_at`, and `status`. Copy `license_key` into your environment configuration.
+   - **No server yet?** Export `LICENSE_SIGNING_SECRET=<your-secret>` locally and run
+     `python -m src.core.license_tool generate "Customer Name"` to mint a signed offline license. The tool prints both the key
+     and the embedded payload so you can confirm the expiry and feature flags before sharing it.
+2. **Store the key securely** – The application reads the key in this order:
+   - `LICENSE_KEY` environment variable (recommended; add it to `.env` for local development or provision it via your hosting
+     provider's secret manager).
+   - System keyring entry: service `shopsaavy`, account `license_key`.
+   - License file at `~/.license_key` or `~/.config/shopsaavy/license_key` containing the raw key value.
+   - If you issued an offline key with `license_tool`, also export `LICENSE_SIGNING_SECRET` so the runtime can verify the
+     embedded signature locally.
+3. **Validate the key** – Run the CLI helper to confirm activation before starting the app:
+   ```bash
+   python -m src.core.license_cli validate
+   ```
+   A JSON payload prints to the console. If validation fails, the response includes an error message and the key will not be
+   cached.
+4. **Understand offline behaviour** – Successful validation caches a signed payload to `~/.app_cache/license.json` and
+   `~/.app_cache/license.key` (override via `LICENSE_CACHE_PATH` and `LICENSE_LOCAL_KEY_PATH`). When the license server is
+   unreachable, the cache is accepted for 24 hours from the last validation or until the embedded expiry timestamp lapses. If
+   you distribute offline keys generated with `license_tool`, the runtime validates the signature locally and writes the same
+   cache artefacts so subsequent validations succeed without contacting the hosted service.
+5. **Review logs** – All license events are written to `/logs/license.log` by default (override with `LICENSE_LOG_PATH`). Check
+   this file if the app exits with `[LICENSE ERROR]` to see detailed diagnostics from either the remote API or the offline
+   signature validator.
+
+> **Tip:** In containerized or PaaS deployments, mount a writable directory for the cache path so the instance can persist
+> offline tokens between restarts.
+
+For deeper operational guidance—including automated renewal workflows, revocation procedures, and license visibility inside the
+admin panel—see the [License Configuration Guide](./docs/LICENSE_CONFIGURATION.md) and the wiki article
+[`docs/wiki/LICENSING_WIKI.md`](./docs/wiki/LICENSING_WIKI.md).
 
 [![Video Title](https://img.youtube.com/vi/8F2M70TRTv0/maxresdefault.jpg)](https://www.youtube.com/watch?v=8F2M70TRTv0)
 
