@@ -1,143 +1,99 @@
-import json
-from datetime import datetime, timedelta, timezone
+import base64
+import hashlib
+import hmac
 from pathlib import Path
 
 import pytest
 
-from core.license_manager import LicenseManager, LicenseStatus, LicenseValidationError
-from core.license_offline import OfflineLicensePayload, generate_offline_license
+from core.license_manager import LicenseManager, LicenseValidationError
+
+
+PASSWORD_B64 = "U0hPUFNTQUFWWS1QUk9EVUNUSU9OLVNFR1JFVA=="
+SALT = "v1"
+KEY_LENGTH = 25
+GROUP_SIZE = 5
+IDENTIFIER_ENV = "SHOPSAAVY_LICENSE_IDENTIFIER"
+
+
+def generate_key(identifier: str) -> str:
+    password = base64.b64decode(PASSWORD_B64).decode("utf-8")
+    key_bytes = password.encode("utf-8")
+    message = identifier.encode("utf-8") + b":" + SALT.encode("utf-8")
+    digest = hmac.new(key_bytes, message, hashlib.sha256).digest()
+    needed_bytes = (KEY_LENGTH * 5 + 7) // 8
+    if needed_bytes > len(digest):
+        derived = hashlib.pbkdf2_hmac(
+            "sha256",
+            identifier.encode("utf-8"),
+            (password + SALT).encode("utf-8"),
+            100_000,
+            dklen=needed_bytes,
+        )
+    else:
+        derived = digest[:needed_bytes]
+
+    raw = base64.b32encode(derived).decode("utf-8").rstrip("=")[:KEY_LENGTH]
+    parts = [raw[i : i + GROUP_SIZE] for i in range(0, len(raw), GROUP_SIZE)]
+    return "-".join(parts)
 
 
 @pytest.fixture(autouse=True)
-def clear_env(monkeypatch, tmp_path):
+def setup_env(monkeypatch, tmp_path):
     monkeypatch.delenv("LICENSE_KEY", raising=False)
-    monkeypatch.setenv("LICENSE_CACHE_PATH", str(tmp_path / "license.json"))
-    monkeypatch.setenv("LICENSE_LOG_PATH", str(tmp_path / "license.log"))
-    monkeypatch.setenv("LICENSE_LOCAL_KEY_PATH", str(tmp_path / "license.key"))
+    monkeypatch.delenv(IDENTIFIER_ENV, raising=False)
+    log_path = tmp_path / "logs" / "license.log"
+    monkeypatch.setenv("LICENSE_LOG_PATH", str(log_path))
     yield
 
 
-def future_timestamp(hours: int = 1) -> str:
-    return (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
-
-
-def past_timestamp(hours: int = 1) -> str:
-    return (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
-
-
-def test_valid_license(monkeypatch):
-    license_key = "TEST-VALID-1234"
-    monkeypatch.setenv("LICENSE_KEY", license_key)
-
-    def fake_remote(self):
-        return LicenseStatus(valid=True, expiry=future_timestamp())
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fake_remote, raising=False)
+def test_validate_license_success(monkeypatch, tmp_path):
+    identifier = "GLOBAL"
+    monkeypatch.setenv(IDENTIFIER_ENV, identifier)
+    key = generate_key(identifier)
+    monkeypatch.setenv("LICENSE_KEY", key)
 
     manager = LicenseManager()
     assert manager.validate_license() is True
+
     status = manager.get_license_status()
     assert status["valid"] is True
+    assert status["message"] == "License validated locally."
+    assert status["details"] == {"mode": "offline"}
     assert status["license_key"].startswith("XXXX-XXXX-")
-    assert "validated_at" in status
+
+    log_path = Path(tmp_path / "logs" / "license.log")
+    assert log_path.exists()
+    assert "License validated locally." in log_path.read_text()
 
 
-def test_invalid_license(monkeypatch):
-    license_key = "TEST-INVALID-1234"
-    monkeypatch.setenv("LICENSE_KEY", license_key)
-
-    def fake_remote(self):
-        return LicenseStatus(valid=False, message="Invalid license")
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fake_remote, raising=False)
+def test_validate_license_invalid_key(monkeypatch):
+    monkeypatch.setenv("LICENSE_KEY", "INVALID-KEY-12345")
 
     manager = LicenseManager()
     with pytest.raises(LicenseValidationError):
         manager.validate_license()
 
 
-def test_expired_license(monkeypatch):
-    license_key = "TEST-EXPIRED-1234"
-    monkeypatch.setenv("LICENSE_KEY", license_key)
-
-    def fake_remote(self):
-        return LicenseStatus(valid=True, expiry=past_timestamp())
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fake_remote, raising=False)
-
-    manager = LicenseManager()
+def test_missing_license_key():
+    manager = LicenseManager(license_key="")
     with pytest.raises(LicenseValidationError):
         manager.validate_license()
 
 
-def test_caching_behavior(monkeypatch, tmp_path):
-    license_key = "TEST-CACHE-1234"
-    monkeypatch.setenv("LICENSE_KEY", license_key)
-    call_count = {"count": 0}
-
-    def fake_remote(self):
-        call_count["count"] += 1
-        return LicenseStatus(valid=True, expiry=future_timestamp())
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fake_remote, raising=False)
-
+def test_status_before_validation(monkeypatch):
+    key = generate_key("GLOBAL")
+    monkeypatch.setenv("LICENSE_KEY", key)
     manager = LicenseManager()
-    assert manager.validate_license() is True
-    assert call_count["count"] == 1
-    assert manager.validate_license() is True
-    assert call_count["count"] == 1
-
-    cache_file = Path(tmp_path / "license.json")
-    assert cache_file.exists()
-    payload = json.loads(cache_file.read_text())
-    assert payload["license_hash"]
-    assert "validated_at" in payload
-
-
-def test_offline_license_validation(monkeypatch):
-    secret = "top-secret"
-    monkeypatch.setenv("LICENSE_SIGNING_SECRET", secret)
-    payload = OfflineLicensePayload(
-        customer="Acme Corp",
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
-        plan="starter",
-        seats=5,
-    )
-    license_key = generate_offline_license(secret, payload)
-    monkeypatch.setenv("LICENSE_KEY", license_key)
-
-    def fail_remote(self):  # pragma: no cover - should never be called
-        raise AssertionError("Remote validation should not run for offline licenses")
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fail_remote, raising=False)
-
-    manager = LicenseManager()
-    assert manager.validate_license() is True
     status = manager.get_license_status()
-    assert status["valid"] is True
-    assert status["message"] == "Offline license validated locally."
-    details = status.get("details", {})
-    assert details["customer"] == "Acme Corp"
-    assert details["plan"] == "starter"
-    assert details["seats"] == 5
+    assert status["valid"] is False
+    assert status["message"] == "License not yet validated."
+    assert status["license_key"].endswith(key.replace("-", "")[-4:])
 
 
-def test_offline_license_invalid_signature(monkeypatch):
-    secret = "another-secret"
-    monkeypatch.setenv("LICENSE_SIGNING_SECRET", secret)
-    payload = OfflineLicensePayload(
-        customer="Bad Actor",
-        expires_at=datetime.now(timezone.utc) + timedelta(days=10),
-    )
-    license_key = generate_offline_license(secret, payload)
-    tampered = license_key[:-1] + ("0" if license_key[-1] != "0" else "1")
-    monkeypatch.setenv("LICENSE_KEY", tampered)
-
-    def fail_remote(self):  # pragma: no cover - should never be called
-        raise AssertionError("Remote validation should not run for invalid offline licenses")
-
-    monkeypatch.setattr(LicenseManager, "_perform_remote_validation", fail_remote, raising=False)
-
+def test_identifier_override(monkeypatch):
+    identifier = "CUSTOM-IDENT"
+    monkeypatch.setenv(IDENTIFIER_ENV, identifier)
+    key = generate_key(identifier)
+    monkeypatch.setenv("LICENSE_KEY", key)
     manager = LicenseManager()
-    with pytest.raises(LicenseValidationError):
-        manager.validate_license()
+    assert manager.validate_license() is True
