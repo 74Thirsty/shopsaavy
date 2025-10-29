@@ -44,27 +44,44 @@ class LicenseManager:
     """Manage offline license validation using the embedded public key."""
 
     def __init__(
-        self,
-        license_token: Optional[str] = None,
-        *,
-        log_path: Optional[Path] = None,
-        public_key_path: Optional[Path] = None,
-        expected_product: Optional[str] = None,
-        expected_version: Optional[str] = None,
+            self,
+            license_token: Optional[str] = None,
+            *,
+            log_path: Optional[Path] = None,
+            public_key_path: Optional[Path] = None,
+            expected_product: Optional[str] = None,
+            expected_version: Optional[str] = None,
     ) -> None:
+        # ------------------------------------------------------------------
+        # Resolve everything relative to the ShopSaavy project root
+        # ------------------------------------------------------------------
+        APP_ROOT = Path(__file__).resolve().parents[2]  # ~/Git/shopsaavy
+        DEFAULT_LOG_PATH = APP_ROOT / "logs" / "license.log"
+        DEFAULT_PUBLIC_KEY = APP_ROOT / "src" / "core" / "license_public.pem"
+
+        # Environment overrides
         log_env = os.getenv("LICENSE_LOG_PATH")
         public_key_env = os.getenv("LICENSE_PUBLIC_KEY_PATH")
         product_env = os.getenv("LICENSE_PRODUCT")
         version_env = os.getenv("LICENSE_VERSION")
 
-        self.log_file = Path(log_env) if log_env else (log_path or Path("/logs/license.log"))
+        # ------------------------------------------------------------------
+        # Paths now resolve inside the app root, never /
+        # ------------------------------------------------------------------
+        self.log_file = (
+            Path(log_env)
+            if log_env
+            else (log_path or DEFAULT_LOG_PATH)
+        )
         self.public_key_path = (
             Path(public_key_env)
             if public_key_env
-            else (public_key_path or Path(__file__).with_name("license_public.pem"))
+            else (public_key_path or DEFAULT_PUBLIC_KEY)
         )
         self.expected_product = expected_product or product_env
         self.expected_version = expected_version or version_env
+
+        # ensure logs/ exists under app root
         self.log_file.parent.mkdir(parents=True, exist_ok=True)
 
         self.license_token = license_token or self._load_license_token()
